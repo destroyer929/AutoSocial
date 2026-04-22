@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoSocial | Cinematic Creator Ecosystem</title>
+    <!-- Premium Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <!-- Cinematic Interaction Core -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://unpkg.com/lenis@1.0.45/dist/lenis.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #030712;
+            --accent: #6cf2d5;
+            --accent-glow: rgba(108, 242, 213, 0.4);
+            --violet: #8b5cf6;
+            --violet-glow: rgba(139, 92, 246, 0.3);
+            --glass-bg: rgba(15, 23, 42, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text-main: #f9fafb;
+            --text-soft: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(108, 242, 213, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 40%);
+        }
+
+        /* --- Global Cinematic Assets --- */
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://grainy-gradients.vercel.app/noise.svg');
+            opacity: 0.04;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .gradient-glow {
+            position: fixed;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: -1;
+            filter: blur(100px);
+            opacity: 0.4;
+        }
+
+        /* --- Scroller Progress Bar --- */
+        .scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--violet));
+            z-index: 10000;
+        }
+
+        /* --- Section Styling --- */
+        section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0 10%;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* Hero: Cinematic Entrance */
+        .hero-content {
+            text-align: center;
+            z-index: 10;
+        }
+
+        .badge-premium {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .headline {
+            font-size: clamp(3rem, 10vw, 7.5rem);
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -0.05em;
+            margin-bottom: 24px;
+            background: linear-gradient(to bottom, #fff 30%, rgba(255,255,255,0.5));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .subheadline {
+            font-size: 1.25rem;
+            color: var(--text-soft);
+            max-width: 600px;
+            margin: 0 auto 48px;
+            line-height: 1.6;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        /* Meta-UI Mockup */
+        .meta-ui-container {
+            position: relative;
+            width: 100%;
+            max-width: 1100px;
+            perspective: 2000px;
+            margin-top: 40px;
+            opacity: 0;
+        }
+
+        .meta-ui-dashboard {
+            width: 100%;
+            height: auto;
+            border-radius: 32px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 50px 150px rgba(0,0,0,0.8);
+            backdrop-filter: blur(20px);
+            transform: rotateX(12deg) rotateY(-5deg);
+            position: relative;
+            overflow: hidden;
+            display: block;
+        }
+
+        .ui-img {
+            width: 100%;
+            height: auto;
+            border-radius: 28px;
+            display: block;
+        }
+
+        /* --- Scroll Beats --- */
+        .story-beat {
+            text-align: left;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 100px;
+            align-items: center;
+        }
+
+        .beat-text h2 {
+            font-size: clamp(2rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 24px;
+            letter-spacing: -0.04em;
+        }
+
+        .beat-text p {
+            font-size: 1.15rem;
+            color: var(--text-soft);
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        /* Floating Cards Animation */
+        .floating-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 30px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .floating-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-8px) scale(1.02);
+        }
+
+        /* --- AI Section (Neural Orb) --- */
+        .ai-orb-wrap {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .neural-orb {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, var(--accent) 0%, var(--violet) 100%);
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.4;
+        }
+
+        .orb-core {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 40px var(--accent), 0 0 100px var(--violet);
+            z-index: 2;
+        }
+
+        .typing-gen {
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-weight: 600;
+            min-height: 80px;
+        }
+
+        /* --- CTA Footer --- */
+        .final-cta {
+            background: radial-gradient(circle at center, rgba(108, 242, 213, 0.15) 0%, transparent 80%);
+        }
+
+        .btn-cinematic {
+            position: relative;
+            background: #fff;
+            color: #000;
+            font-size: 1.25rem;
+            font-weight: 800;
+            padding: 20px 60px;
+            border-radius: 999px;
+            text-decoration: none;
+            overflow: hidden;
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-block;
+        }
+
+        .btn-cinematic:hover {
+            transform: scale(1.1);
+            box-shadow: 0 20px 80px rgba(108, 242, 213, 0.4);
+        }
+
+        /* Premium Highlights */
+        .feature-chip {
+            display: inline-flex;
+            padding: 4px 12px;
+            border-radius: 6px;
+            background: var(--accent-glow);
+            color: var(--accent);
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-right: 8px;
+        }
+
+        /* Adjustments */
+        #lenis-scrollbar { width: 4px !important; }
+    </style>
+</head>
+<body>
+    <div class="noise"></div>
+    <div class="scroll-progress" id="progress"></div>
+    <div class="gradient-glow" id="mouse-glow"></div>
+
+    <section class="hero-section">
+        <div class="hero-content container">
+            <div class="badge-premium" id="badge">
+                <i class="fa-solid fa-bolt"></i> Global Beta V4.0
+            </div>
+            <h1 class="headline" id="main-text">The New Era of<br>Digital Influence</h1>
+            <p class="subheadline" id="sub-text">AutoSocial is the world's most advanced cinematic ecosystem for creators and brands. Predict virality, automate distribution, and scale beyond limits.</p>
+            
+            <div class="meta-ui-container" id="mockup-wrap">
+                <div class="meta-ui-dashboard" id="main-ui">
+                    <img src="/static/autosocial_hero_mockup.png" alt="Dashboard" class="ui-img">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Narrative 1: Picking Campaigns -->
+    <section class="story-beat container">
+        <div class="beat-text" id="beat1-text">
+            <h2>Pick Your Story.</h2>
+            <p>Don't chase trends. Let our narrative engine match you with campaigns from world-class brands. Secure global partnerships with a single tap.</p>
+            <div style="display: flex; gap: 15px;">
+                <div class="floating-card" style="flex: 1;">
+                    <span class="feature-chip">CAMPAIGN</span>
+                    <h4 style="margin: 10px 0;">Nike x Marathon</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-soft);">Global rollout for the new performance series.</p>
+                </div>
+            </div>
+        </div>
+        <div class="beat-visual" id="beat1-visual">
+            <div class="floating-card" style="transform: rotateZ(-5deg); margin-left: auto; width: 320px;">
+                <div style="width: 100%; height: 180px; background: rgba(0,0,0,0.3); border-radius: 12px; margin-bottom: 20px;"></div>
+                <div style="font-weight: 700;">Earnings Potential</div>
+                <div style="font-size: 2rem; color: var(--accent);">$4,280.00</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Narrative 2: AI Neural Orb -->
+    <section class="story-beat container" style="grid-template-columns: 1.2fr 0.8fr;">
+        <div class="beat-visual">
+            <div class="ai-orb-wrap">
+                <div class="neural-orb"></div>
+                <div class="orb-core"></div>
+            </div>
+        </div>
+        <div class="beat-text" id="beat2-text">
+            <h2>Neural Prediction.</h2>
+            <p>Know the future before it happens. Our viral engine analyzes the emotional hook of your content with 94.2% accuracy.</p>
+            <div class="typing-gen" id="typewriter">
+                Analyzing trends... [Success 94%]
+            </div>
+        </div>
+    </section>
+
+    <!-- Narrative 3: Global Scaling -->
+    <section class="story-beat container">
+        <div class="beat-text" id="beat3-text">
+            <h2>Measure the Magic.</h2>
+            <p>High-fidelity analytics scaped directly from the edge. Real-time insights into your views, likes, and true ROI.</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="floating-card">
+                    <div style="color: var(--violet); font-size: 1.5rem; font-weight: 800;">14.2M</div>
+                    <div style="font-size: 0.75rem; color: var(--text-soft);">TOTAL VIEWS</div>
+                </div>
+                <div class="floating-card">
+                    <div style="color: var(--accent); font-size: 1.5rem; font-weight: 800;">+240%</div>
+                    <div style="font-size: 0.75rem; color: var(--text-soft);">ROI GROWTH</div>
+                </div>
+            </div>
+        </div>
+        <div class="beat-visual">
+            <!-- Representing stats -->
+            <div style="width: 100%; height: 300px; display: flex; align-items: flex-end; gap: 10px; padding: 20px;">
+                <div style="flex: 1; height: 30%; background: var(--violet); opacity: 0.4; border-radius: 8px;"></div>
+                <div style="flex: 1; height: 50%; background: var(--violet); opacity: 0.6; border-radius: 8px;"></div>
+                <div style="flex: 1; height: 90%; background: var(--accent); border-radius: 8px; box-shadow: 0 0 30px var(--accent-glow);"></div>
+                <div style="flex: 1; height: 70%; background: var(--violet); opacity: 0.8; border-radius: 8px;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="final-cta">
+        <div style="text-align: center;">
+            <h2 style="font-size: clamp(2.5rem, 6vw, 5rem); font-weight: 800; margin-bottom: 20px;">Your story<br>scales today.</h2>
+            <p style="color: var(--text-soft); font-size: 1.25rem; margin-bottom: 50px;">Join 12,000+ elite creators and brands at the forefront of AI social automation.</p>
+            <a href="/signup" class="btn-cinematic">Get Started Free</a>
+        </div>
+    </section>
+
+    <script>
+        // --- High Fidelity Scroll Context ---
+        const lenis = new Lenis({
+            duration: 1.4,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t))
+        });
+
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // --- Cinematic Motion System ---
+        gsap.registerPlugin(ScrollTrigger);
+
+        // 1. Initial Reveal
+        const entrance = gsap.timeline();
+        entrance.to("#badge", { opacity: 1, y: 0, duration: 1, ease: "expo.out" })
+               .to("#main-text", { opacity: 1, y: 0, duration: 1.2, ease: "expo.out" }, "-=0.8")
+               .to("#sub-text", { opacity: 1, y: 0, duration: 1.2, ease: "expo.out" }, "-=1")
+               .to("#mockup-wrap", { opacity: 1, duration: 2, ease: "power4.out" }, "-=1")
+               .from("#main-ui", { rotationX: -30, rotationY: 20, z: -500, duration: 2.5, ease: "power4.out" }, "-=2");
+
+        // 2. Continuous UI Float
+        gsap.to("#main-ui", {
+            y: -20,
+            x: 10,
+            rotationX: 10,
+            rotationY: -2,
+            duration: 4,
+            repeat: -1,
+            yoyo: true,
+            ease: "sine.inOut"
+        });
+
+        // 3. Mouse Glow Interaction
+        document.addEventListener("mousemove", (e) => {
+            gsap.to("#mouse-glow", {
+                x: e.clientX - 400,
+                y: e.clientY - 400,
+                duration: 2,
+                ease: "power2.out"
+            });
+        });
+
+        // 4. Scroll Tracking Dashboard Hero -> First Beat
+        gsap.to("#main-ui", {
+            scrollTrigger: {
+                trigger: ".hero-section",
+                start: "top top",
+                end: "bottom top",
+                scrub: 1.5
+            },
+            scale: 1.2,
+            z: 200,
+            rotationX: 0,
+            rotationY: 0,
+            opacity: 0.1,
+            filter: "blur(20px)"
+        });
+
+        // 5. Scroll Progress
+        window.addEventListener("scroll", () => {
+            const scroller = document.documentElement;
+            const progress = (scroller.scrollTop / (scroller.scrollHeight - scroller.clientHeight)) * 100;
+            document.getElementById("progress").style.width = progress + "%";
+        });
+
+        // 6. Section Narrative reveals
+        const revealConfig = {
+            start: "top 80%",
+            toggleActions: "play none none reverse"
+        };
+
+        gsap.from("#beat1-text", { scrollTrigger: { trigger: "#beat1-text", ...revealConfig }, opacity: 0, x: -100, duration: 1.5, ease: "expo.out" });
+        gsap.from("#beat2-text", { scrollTrigger: { trigger: "#beat2-text", ...revealConfig }, opacity: 0, x: 100, duration: 1.5, ease: "expo.out" });
+        gsap.from("#beat3-text", { scrollTrigger: { trigger: "#beat3-text", ...revealConfig }, opacity: 0, x: -100, duration: 1.5, ease: "expo.out" });
+
+        // 7. AI Typewriter Logic
+        const phrases = [
+            "Analyzing platform trends...",
+            "Scoring emotional resonance...",
+            "Predicting virality: 94.2%",
+            "Neutral network optimized."
+        ];
+        let pIndex = 0;
+        const typewriter = document.getElementById("typewriter");
+        
+        setInterval(() => {
+            pIndex = (pIndex + 1) % phrases.length;
+            typewriter.innerText = phrases[pIndex];
+        }, 3000);
+
+    </script>
+</body>
+</html>

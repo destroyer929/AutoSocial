@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | AutoSocial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Shared Styles */
+        :root {
+            --primary-gradient: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            --text-dark: #1f2937;
+            --text-gray: #6b7280;
+            --bg-color: #f3f4f6;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        
+        .auth-container { width: 100%; max-width: 450px; padding: 20px; } /* Slightly wider for signup */
+        .auth-card {
+            background: white; padding: 40px; border-radius: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); text-align: center;
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .logo {
+            font-size: 1.8rem; font-weight: 700;
+            background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 10px; display: inline-block;
+        }
+        .subtitle { color: var(--text-gray); font-size: 0.95rem; margin-bottom: 30px; }
+
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-dark); margin-bottom: 8px; }
+        .input-wrapper { position: relative; }
+        .input-wrapper i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 1rem; }
+        
+        input {
+            width: 100%; padding: 12px 15px 12px 45px; border: 2px solid #e5e7eb; border-radius: 10px;
+            font-size: 0.95rem; transition: all 0.3s ease; outline: none; background: #f9fafb;
+        }
+        input:focus { border-color: #4F46E5; background: white; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+
+        .btn-submit {
+            width: 100%; padding: 14px; background: var(--primary-gradient); color: white; border: none;
+            border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3); }
+
+        .auth-footer { margin-top: 25px; font-size: 0.9rem; color: var(--text-gray); }
+        .auth-footer a { color: #4F46E5; text-decoration: none; font-weight: 600; transition: color 0.2s; }
+        .auth-footer a:hover { color: #7C3AED; text-decoration: underline; }
+
+        .alert {
+            padding: 12px; border-radius: 8px; font-size: 0.9rem; margin-bottom: 20px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    </style>
+</head>
+<body>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="logo"><i class="fa-solid fa-robot"></i> AutoSocial</div>
+        <p class="subtitle">Join us and automate your growth 🚀</p>
+
+        <div id="alert-area">
+            {% if message %}
+            <div class="alert alert-error">
+                <i class="fa-solid fa-circle-exclamation"></i> {{ message }}
+            </div>
+            {% endif %}
+        </div>
+
+        <form action="/signup" method="POST" onsubmit="return validatePassword()">
+            
+            <div class="form-group">
+                <label class="label">Email Address</label>
+                <div class="input-wrapper">
+                    <i class="fa-regular fa-envelope"></i>
+                    <input type="email" name="email" placeholder="name@example.com" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="label">Create Password</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" name="password" id="password" placeholder="Min. 6 characters" required minlength="6">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="label">Confirm Password</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-check-double"></i>
+                    <input type="password" id="confirm_password" placeholder="Re-enter password" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+            Already have an account? <a href="/login">Log In</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('error')) {
+        document.getElementById('alert-area').innerHTML = `
+            <div class="alert alert-error">
+                <i class="fa-solid fa-circle-exclamation"></i> ${params.get('error')}
+            </div>`;
+    }
+
+    // Frontend Validation for Passwords
+    function validatePassword() {
+        const p1 = document.getElementById("password").value;
+        const p2 = document.getElementById("confirm_password").value;
+        
+        if (p1 !== p2) {
+            document.getElementById('alert-area').innerHTML = `
+                <div class="alert alert-error">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Passwords do not match!
+                </div>`;
+            return false; // Prevent submission
+        }
+        return true;
+    }
+</script>
+
+</body>
+</html>

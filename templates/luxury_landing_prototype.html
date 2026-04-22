@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoSocial | Cinematic Experience</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://unpkg.com/lenis@1.0.45/dist/lenis.min.js"></script>
+    <style>
+        :root {
+            --bg: #030712;
+            --accent: #6cf2d5;
+            --accent-glow: rgba(108, 242, 213, 0.3);
+            --violet: #8b5cf6;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Cinematic Background */
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://grainy-gradients.vercel.app/noise.svg');
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .bg-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            height: 80vh;
+            background: radial-gradient(circle, rgba(108, 242, 213, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Layout */
+        section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 100px 20px;
+        }
+
+        /* Hero Section */
+        .hero {
+            perspective: 1000px;
+        }
+
+        .hero-title {
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 800;
+            line-height: 0.9;
+            text-align: center;
+            background: linear-gradient(to bottom, #fff 40%, rgba(255,255,255,0.4));
+            -webkit-background-clip: text;
+            -webkit-fill-color: transparent;
+            margin-bottom: 20px;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .hero-sub {
+            font-size: 1.25rem;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 40px;
+            max-width: 600px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        /* 3D Dashboard Mockup */
+        .dashboard-container {
+            width: 80%;
+            max-width: 1000px;
+            height: 500px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            transform: rotateX(15deg) rotateY(-10deg) rotateZ(2deg);
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+        }
+
+        .dashboard-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .dash-content {
+            padding: 60px 40px;
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+
+        .dash-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            height: 120px;
+            padding: 20px;
+        }
+
+        .glow-line {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            position: absolute;
+            top: 40px;
+            left: 0;
+            opacity: 0.5;
+        }
+
+        /* Storytelling Sections */
+        .story-section {
+            opacity: 0;
+            transform: translateY(50px);
+        }
+
+        .story-text h2 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .story-text p {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.6);
+            max-width: 500px;
+        }
+
+        /* AI Orb */
+        .ai-orb-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+        }
+
+        .ai-orb {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, var(--accent) 0%, var(--violet) 100%);
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.6;
+            animation: pulse 4s infinite ease-in-out;
+        }
+
+        .ai-orb-inner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 50px var(--accent);
+            z-index: 2;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.8; }
+        }
+
+        /* CTA */
+        .cta-btn {
+            background: #fff;
+            color: #000;
+            padding: 16px 40px;
+            border-radius: 999px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-block;
+        }
+
+        .cta-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(255,255,255,0.2);
+        }
+
+        .parallax-element {
+            position: absolute;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <div class="bg-glow"></div>
+
+    <section class="hero" id="hero">
+        <h1 class="hero-title">Social Content<br>Reimagined</h1>
+        <p class="hero-sub">Enter the first AI-driven creator ecosystem. Transform your creative output into a cinematic narrative that scales.</p>
+        
+        <div class="dashboard-container" id="dash">
+            <div class="glow-line"></div>
+            <div class="dash-content">
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="dash-card">
+                        <div style="width: 40px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; margin-bottom: 10px;"></div>
+                        <div style="width: 100%; height: 2px; background: var(--accent); opacity: 0.3;"></div>
+                    </div>
+                    <div class="dash-card">
+                        <div style="width: 40px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; margin-bottom: 10px;"></div>
+                        <div style="width: 100%; height: 2px; background: var(--violet); opacity: 0.3;"></div>
+                    </div>
+                </div>
+                <div class="dash-card" style="height: 100%; position: relative;">
+                    <div style="position: absolute; bottom: 20px; left: 20px; right: 20px; height: 50%; background: linear-gradient(to top, var(--accent-glow), transparent); border-radius: 8px;"></div>
+                    <div style="color: var(--accent); font-weight: 800; font-size: 2rem;">+2,480%</div>
+                    <div style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">ENGAGEMENT TREND</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="story-section" id="pick">
+        <div class="story-text">
+            <h2>Pick Your Path</h2>
+            <p>Our narrative engine analyzes 10,000+ campaigns to find the one that fits your unique storytelling style.</p>
+        </div>
+        <div class="dashboard-container" style="height: 300px; transform: rotateX(10deg) rotateY(15deg); margin-top: 40px;">
+             <!-- Mock UI -->
+             <div style="display: flex; gap: 10px; padding: 20px;">
+                 <div style="width: 100px; height: 140px; background: var(--glass); border-radius: 10px;"></div>
+                 <div style="width: 100px; height: 140px; background: var(--glass); border-radius: 10px; border: 1px solid var(--accent);"></div>
+                 <div style="width: 100px; height: 140px; background: var(--glass); border-radius: 10px;"></div>
+             </div>
+        </div>
+    </section>
+
+    <section class="story-section" id="ai">
+        <div class="ai-orb-container">
+            <div class="ai-orb"></div>
+            <div class="ai-orb-inner"></div>
+        </div>
+        <div class="story-text" style="text-align: center; margin-top: 40px;">
+            <h2>AI-Powered Viral Prediction</h2>
+            <p>Know the outcome before you post. Our neural engine predicts virality with 94.2% accuracy.</p>
+        </div>
+    </section>
+
+    <section id="last" style="min-height: 60vh;">
+        <h2 style="font-size: 4rem; margin-bottom: 40px; text-align: center;">Ready to start<br>your story?</h2>
+        <a href="#" class="cta-btn">Join the Revolution</a>
+    </section>
+
+    <script>
+        // --- Smooth Scroll (Lenis) ---
+        const lenis = new Lenis()
+        function raf(time) {
+            lenis.raf(time)
+            requestAnimationFrame(raf)
+        }
+        requestAnimationFrame(raf)
+
+        // --- Animations (GSAP) ---
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Initial Load
+        const tl = gsap.timeline();
+        tl.to(".hero-title", { opacity: 1, y: 0, duration: 1, ease: "expo.out" })
+          .to(".hero-sub", { opacity: 1, y: 0, duration: 1, ease: "expo.out" }, "-=0.7")
+          .to("#dash", { opacity: 1, duration: 1.5, ease: "power4.out" }, "-=0.5")
+          .from("#dash", { rotationX: 45, rotationY: -30, duration: 2, ease: "power4.out" }, "-=1.5");
+
+        // Scroll Parallax for Dash
+        gsap.to("#dash", {
+            scrollTrigger: {
+                trigger: "#hero",
+                start: "top top",
+                end: "bottom top",
+                scrub: true
+            },
+            y: 200,
+            rotationX: 0,
+            rotationY: 0,
+            scale: 1.1,
+            filter: "blur(4px)"
+        });
+
+        // Section Reveals
+        gsap.utils.toArray(".story-section").forEach(section => {
+            gsap.to(section, {
+                scrollTrigger: {
+                    trigger: section,
+                    start: "top 80%",
+                    toggleActions: "play none none reverse"
+                },
+                opacity: 1,
+                y: 0,
+                duration: 1.5,
+                ease: "expo.out"
+            });
+        });
+
+        // Mouse Parallax (Hero)
+        document.addEventListener("mousemove", (e) => {
+            const { clientX, clientY } = e;
+            const x = (clientX / window.innerWidth - 0.5) * 20;
+            const y = (clientY / window.innerHeight - 0.5) * 20;
+            
+            gsap.to("#dash", {
+                x: x,
+                y: y + (window.scrollY * 0.2), // combine with scroll
+                rotationY: -10 + (x * 0.5),
+                rotationX: 15 - (y * 0.5),
+                duration: 1,
+                ease: "power2.out"
+            });
+        });
+
+    </script>
+</body>
+</html>

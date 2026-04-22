@@ -1,0 +1,2178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creator Dashboard | AutoSocial</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+  <style>
+    :root {
+      /* Unified Premium Tokens */
+      --bg: #030712;
+      --bg-main: radial-gradient(1200px circle at 10% 10%, #1c2a3a 0%, transparent 40%),
+        radial-gradient(1000px circle at 90% 20%, #2d1f3a 0%, transparent 40%),
+        linear-gradient(180deg, #0b0f14, #0e141b);
+      --surface: rgba(255, 255, 255, 0.03);
+      --surface-hover: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.08);
+      --glass-bg: rgba(255, 255, 255, 0.06);
+      --glass-border: rgba(255, 255, 255, 0.15);
+      --text-main: #ffffff;
+      --text-soft: #9ca3af;
+      --accent-neon: #6cf2d5;
+      --accent-gold: #f5d28b;
+      --neon: #6cf2d5;
+      --neon-glow: rgba(108, 242, 213, 0.3);
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.3);
+
+      --danger: #ef4444;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg-main);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding-bottom: 60px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* HEADER – match analytics tone */
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: linear-gradient(180deg,
+          rgba(5, 10, 18, 0.96),
+          rgba(5, 10, 18, 0.9));
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      margin-bottom: 36px;
+    }
+
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 24px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      line-height: 1.2;
+    }
+
+    .logo-main {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-main i {
+      color: var(--accent-neon);
+      font-size: 1.1rem;
+    }
+
+    .logo-sub {
+      font-size: 0.85rem;
+      color: var(--text-soft);
+      font-weight: 400;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-header {
+      background: var(--glass-bg);
+      color: var(--text-main);
+      border: 1px solid var(--glass-border);
+      padding: 8px 16px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease, color .25s ease;
+    }
+
+    .btn-header i {
+      font-size: 0.95rem;
+    }
+
+    .btn-header:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, .6);
+      border-color: rgba(255, 255, 255, 0.26);
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .btn-logout:hover {
+      border-color: rgba(239, 68, 68, 0.6);
+      color: #fee2e2;
+      background: rgba(127, 29, 29, 0.4);
+    }
+
+    @media (max-width: 640px) {
+      .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    /* ALERTS – glass style */
+
+    .alert {
+      padding: 14px 16px;
+      border-radius: 14px;
+      margin-bottom: 24px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      border: 1px solid var(--glass-border);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .65);
+    }
+
+    .alert-success {
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #bbf7d0;
+    }
+
+    .alert-error {
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fecaca;
+    }
+
+    .alert i {
+      font-size: 1.05rem;
+    }
+
+    /* ACTION CARDS – reuse glass card look */
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      position: relative;
+      background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .02));
+      border-radius: 22px;
+      padding: 24px 24px 22px;
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(26px);
+      -webkit-backdrop-filter: blur(26px);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .65);
+      overflow: hidden;
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(420px circle at top left, rgba(255, 255, 255, .16), transparent 50%);
+      pointer-events: none;
+    }
+
+    .card.submit-card {
+      border-top: 3px solid var(--accent-neon);
+    }
+
+    .card.link-card {
+      border-top: 3px solid var(--accent-gold);
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 40px 100px rgba(0, 0, 0, .75);
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .card h2 {
+      position: relative;
+      font-size: 1.15rem;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #ffffff;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .card h2 i {
+      font-size: 1.1rem;
+    }
+
+    /* FORM ELEMENTS – dark/glass inputs */
+
+    .form-group {
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-soft);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-wrapper i {
+      position: absolute;
+      left: 14px;
+      color: #7c8796;
+      pointer-events: none;
+      transition: color .2s ease;
+      font-size: 0.95rem;
+    }
+
+    select,
+    input {
+      width: 100%;
+      padding: 11px 12px 11px 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      font-family: inherit;
+      font-size: 0.92rem;
+      color: var(--text-main);
+      background: rgba(6, 10, 17, 0.92);
+      transition: border-color .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+      appearance: none;
+    }
+
+    select:focus,
+    input:focus {
+      outline: none;
+      border-color: var(--accent-neon);
+      box-shadow: 0 0 0 1px rgba(108, 242, 213, 0.6);
+      background: rgba(6, 10, 17, 1);
+    }
+
+    .input-wrapper:focus-within i {
+      color: var(--accent-neon);
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-neon), #4dd0e1);
+      color: #020617;
+      border: none;
+      padding: 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
+      margin-top: 10px;
+      font-size: 0.95rem;
+      box-shadow: 0 22px 50px rgba(0, 0, 0, .75);
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #4dd0e1, var(--accent-neon));
+      box-shadow: 0 30px 70px rgba(0, 0, 0, .9);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, .8);
+    }
+
+    .btn-green {
+      background: linear-gradient(135deg, var(--success), #059669);
+      color: #ecfdf5;
+      box-shadow: 0 22px 50px rgba(6, 95, 70, .7);
+    }
+
+    .btn-green:hover {
+      background: linear-gradient(135deg, #059669, var(--success));
+    }
+
+    /* SECTION HEADER + FILTERS – match pill filters on analytics */
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-title h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+
+    .btn-toggle {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-soft);
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .2s ease, color .2s ease, border-color .2s ease, transform .15s ease;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .btn-toggle i {
+      font-size: 0.9rem;
+    }
+
+    .btn-toggle:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .filter-bar {
+      background: var(--glass-bg);
+      padding: 6px;
+      border-radius: 999px;
+      display: inline-flex;
+      gap: 4px;
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .75);
+    }
+
+    .filter-btn {
+      padding: 8px 18px;
+      border-radius: 999px;
+      text-decoration: none;
+      color: var(--text-soft);
+      font-weight: 500;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .12s ease;
+      min-width: 34px;
+    }
+
+    .filter-btn i {
+      font-size: 0.9rem;
+    }
+
+    .filter-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+
+    .filter-btn.active {
+      background: linear-gradient(135deg, var(--accent-neon), #4dd0e1);
+      color: #020617;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, .8);
+      transform: translateY(-1px);
+    }
+
+    /* ACCOUNTS GRID – glass cards */
+
+    .accounts-wrapper {
+      transition: max-height 0.4s ease-out, opacity 0.4s ease-out, margin-top 0.3s ease-out;
+      overflow: hidden;
+    }
+
+    .accounts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+      padding-bottom: 16px;
+    }
+
+    .account-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .02));
+      border-radius: 18px;
+      padding: 22px 20px 20px;
+      border: 1px solid var(--glass-border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      transition: 0.2s ease;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .7);
+    }
+
+    .account-card:hover {
+      box-shadow: 0 36px 100px rgba(0, 0, 0, .85);
+      border-color: rgba(255, 255, 255, 0.22);
+      transform: translateY(-2px);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .1), rgba(255, 255, 255, .03));
+    }
+
+    .platform-badge {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.45rem;
+      color: #ffffff;
+      margin-bottom: 12px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .75);
+    }
+
+    .bg-instagram {
+      background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+    }
+
+    .bg-tiktok {
+      background: #000000;
+    }
+
+    .bg-twitter {
+      background: #1DA1F2;
+    }
+
+    .bg-youtube {
+      background: #FF0000;
+    }
+
+    .acc-username {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 2px;
+      color: #ffffff;
+    }
+
+    .acc-platform {
+      font-size: 0.72rem;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+    }
+
+    .btn-delete-icon {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.4);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fecaca;
+      cursor: pointer;
+      opacity: 0;
+      transition: 0.2s ease;
+      font-size: 0.78rem;
+    }
+
+    .account-card:hover .btn-delete-icon {
+      opacity: 1;
+    }
+
+    .btn-delete-icon:hover {
+      background: var(--danger);
+      color: #fef2f2;
+      transform: translateY(-1px);
+    }
+
+    /* EMPTY STATE – dark glass */
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-soft);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02));
+      border-radius: 18px;
+      border: 1px dashed rgba(255, 255, 255, .22);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, .8);
+    }
+
+    .empty-state i {
+      font-size: 2.4rem;
+      margin-bottom: 12px;
+      color: rgba(203, 213, 225, 0.9);
+    }
+
+    /* MODALS – match dark glass style */
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 10, 18, 0.75);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1000;
+    }
+
+    .modal {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.98));
+      padding: 32px 26px 26px;
+      border-radius: 20px;
+      max-width: 450px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, .9);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes popIn {
+      0% {
+        transform: scale(0.94);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .code-box {
+      background: rgba(15, 23, 42, 0.96);
+      padding: 18px;
+      font-family: 'Courier New', monospace;
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      font-weight: bold;
+      margin: 18px 0 20px;
+      border: 1px dashed rgba(148, 163, 184, 0.6);
+      border-radius: 12px;
+      color: #f9fafb;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.12s ease;
+    }
+
+    .code-box:hover {
+      background: rgba(15, 23, 42, 1);
+      border-color: var(--accent-neon);
+      transform: translateY(-1px);
+    }
+
+    .code-box:active {
+      transform: translateY(0);
+    }
+
+    .code-tooltip {
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #020617;
+      color: #f9fafb;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      opacity: 0;
+      transition: 0.2s ease;
+      pointer-events: none;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .code-box:hover .code-tooltip {
+      opacity: 1;
+      top: -34px;
+    }
+
+    .modal-alert {
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      font-size: 0.9rem;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-alert.error {
+      background: rgba(248, 113, 113, 0.12);
+      color: #fecaca;
+      border: 1px solid rgba(248, 113, 113, 0.45);
+    }
+
+    .modal-alert.success {
+      background: rgba(34, 197, 94, 0.12);
+      color: #bbf7d0;
+      border: 1px solid rgba(34, 197, 94, 0.45);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 22px 0 18px;
+    }
+
+    .stat-box {
+      background: rgba(15, 23, 42, 0.96);
+      padding: 12px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      text-align: center;
+    }
+
+    .stat-value {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--accent-neon);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .stat-value i {
+      font-size: 0.95rem;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+    }
+
+    @media (max-width: 768px) {
+      .action-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-header {
+        align-items: flex-start;
+      }
+    }
+
+    /* DROPDOWN – premium feel */
+    .nav-dropdown-content {
+      display: none;
+      position: absolute;
+      top: 100%; /* Changed from calc(100% + 12px) to eliminate the physical gap */
+      right: 0;
+      background: transparent; /* Changed to transparent so the padding gap is invisible */
+      min-width: 220px;
+      z-index: 1000;
+      padding-top: 12px; /* Internal gap that keeps the mouse-over active */
+      transform-origin: top right;
+      animation: dropdownIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .nav-dropdown-inner {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      overflow: hidden;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.85);
+      padding: 8px;
+    }
+
+    .nav-dropdown-content.show {
+      display: block;
+    }
+
+    .dropdown-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      color: var(--text-soft);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 500;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+    }
+
+    .dropdown-link i {
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.4);
+      transition: color 0.2s ease;
+    }
+
+    .dropdown-link:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+    }
+
+    .dropdown-link:hover i {
+      color: var(--accent-neon);
+    }
+
+    @keyframes dropdownIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    /* LLM modal overrides */
+    #llm-modal {
+      display: none;
+    }
+
+    #llm-modal-inner {
+      max-width: 640px;
+      width: 95%;
+      text-align: left;
+    }
+
+    .llm-field-box {
+      background: #020617;
+      border-radius: 10px;
+      padding: 10px;
+      border: 1px solid #1f2937;
+    }
+
+    .llm-field-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #9ca3af;
+    }
+
+    .llm-field-value {
+      margin-top: 4px;
+      color: #e5e7eb;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="glow-1"></div>
+  <div class="glow-2"></div>
+  <header>
+    <div class="header-content">
+      <div class="logo-block">
+        <div class="logo-main">
+          <i class="fa-solid fa-robot"></i>
+          AutoSocial
+        </div>
+        <div class="logo-sub">{{ user_email.split('@')[0] if user_email else 'Marketing' }}</div>
+      </div>
+
+      <div class="header-actions">
+        {% if user_email %}
+        <a href="/stats" class="btn-header"><i class="fa-solid fa-chart-pie"></i> Analytics</a>
+        <button type="button" class="btn-header" onclick="openCampaignModal()"><i class="fa-solid fa-flag"></i> Create
+          Campaign</button>
+        <div class="nav-dropdown" style="position: relative; display: inline-block;"
+          onmouseleave="this.querySelector('.nav-dropdown-content').classList.remove('show')">
+          <button class="btn-header" onclick="this.nextElementSibling.classList.toggle('show')">
+            <i class="fa-solid fa-folder-open"></i> My Promotions
+            <i class="fa-solid fa-chevron-down" style="font-size:0.7rem; margin-left:6px;"></i>
+          </button>
+          <div class="nav-dropdown-content">
+            <div class="nav-dropdown-inner">
+              <a href="/my-promotions?tab=created" class="dropdown-link">
+                <i class="fa-solid fa-folder-plus"></i> Campaigns Created
+              </a>
+              <a href="/my-promotions?tab=joined" class="dropdown-link">
+                <i class="fa-solid fa-users"></i> Campaigns Joined
+              </a>
+            </div>
+          </div>
+        </div>
+        <a href="/promotions" class="btn-header"><i class="fa-solid fa-bullhorn"></i> Promotions</a>
+        <a href="/logout" class="btn-header btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        {% else %}
+        <a href="#" class="btn-header">Home</a>
+        <a href="#paths" class="btn-header">Creators</a>
+        <a href="#paths" class="btn-header">Brands</a>
+        <a href="/login" class="btn-header">Log In</a>
+        <a href="/signup" class="btn-header"
+          style="background:var(--neon); color:#020617; font-weight:700; border:none; padding:8px 20px; border-radius:999px; text-decoration:none;">Sign
+          Up</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+
+
+
+
+  {% if user_email %}
+  <div class="container" style="padding-top: 120px;">
+    {% if message and not verification_needed and not new_video_stats %}
+    <div class="alert {% if is_error %}alert-error{% else %}alert-success{% endif %}">
+      <i class="fa-solid {% if is_error %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+      <div>{{ message }}</div>
+    </div>
+    {% endif %}
+
+    <div class="action-grid">
+      <!-- Existing submit card -->
+      <div class="card submit-card">
+        <h2>
+          <i class="fa-solid fa-cloud-arrow-up" style="color:var(--accent-neon)"></i>
+          Submit Video
+        </h2>
+        <form action="/submit" method="post">
+          <div class="form-group">
+            <label>Target Platform</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-layer-group"></i>
+              <select name="platform">
+                <option value="instagram">Instagram</option>
+                <option value="tiktok">TikTok</option>
+                <option value="twitter">Twitter / X</option>
+                <option value="youtube">YouTube Shorts</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Video Link</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-link"></i>
+              <input type="text" name="url" placeholder="https://..." required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">Process Submission</button>
+        </form>
+      </div>
+
+      <!-- Existing link account card -->
+      <div class="card link-card">
+        <h2>
+          <i class="fa-solid fa-user-plus" style="color:var(--accent-gold)"></i>
+          Link New Account
+        </h2>
+        <form action="/register_account" method="post">
+          <div class="form-group">
+            <label>Platform</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-mobile-screen"></i>
+              <select name="platform">
+                <option value="instagram">Instagram</option>
+                <option value="tiktok">TikTok</option>
+                <option value="twitter">Twitter / X</option>
+                <option value="youtube">YouTube</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Username</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-at"></i>
+              <input type="text" name="account_name" placeholder="username (no @)" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary btn-green">Register Account</button>
+        </form>
+      </div>
+
+      <!-- Viral LLM generator card -->
+      <div class="card submit-card">
+        <h2>
+          <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent-neon)"></i>
+          Generate Viral Content
+        </h2>
+        <form id="llm-form">
+          <div class="form-group">
+            <label>Topic</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-lightbulb"></i>
+              <input type="text" id="llm-topic" placeholder="e.g. Mindset for young entrepreneurs" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Audience</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-users"></i>
+              <input type="text" id="llm-audience" placeholder="e.g. 18–24 founders on Instagram" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Goal</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-bullseye"></i>
+              <select id="llm-goal" required>
+                <option value="followers">Followers</option>
+                <option value="views">Views</option>
+                <option value="reach">Reach</option>
+                <option value="saves">Saves</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Platform</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-layer-group"></i>
+              <select id="llm-platform" required>
+                <option value="instagram">Instagram Reels</option>
+                <option value="youtube">YouTube Shorts</option>
+                <option value="tiktok">TikTok</option>
+                <option value="twitter">Twitter / X</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary">Generate Package</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">
+        <h2>Registered Accounts</h2>
+        <button onclick="toggleAccounts()" class="btn-toggle" id="toggleBtn">
+          <i class="fa-solid fa-eye-slash"></i> Hide
+        </button>
+      </div>
+
+      <div class="filter-bar">
+        <a href="/?platform=all" class="filter-btn {% if current_platform == 'all' %}active{% endif %}">All</a>
+        <a href="/?platform=instagram" class="filter-btn {% if current_platform == 'instagram' %}active{% endif %}">
+          <i class="fa-brands fa-instagram"></i>
+        </a>
+        <a href="/?platform=tiktok" class="filter-btn {% if current_platform == 'tiktok' %}active{% endif %}">
+          <i class="fa-brands fa-tiktok"></i>
+        </a>
+        <a href="/?platform=twitter" class="filter-btn {% if current_platform == 'twitter' %}active{% endif %}">
+          <i class="fa-brands fa-x-twitter"></i>
+        </a>
+        <a href="/?platform=youtube" class="filter-btn {% if current_platform == 'youtube' %}active{% endif %}">
+          <i class="fa-brands fa-youtube"></i>
+        </a>
+      </div>
+    </div>
+
+    <div class="accounts-wrapper" id="accountsWrapper">
+      <div class="accounts-grid">
+        {% if accounts %}
+        {% for acc in accounts %}
+        <div class="account-card">
+          <div class="platform-badge bg-{{ acc['platform']|lower }}">
+            {% if acc['platform']|lower == 'instagram' %}<i class="fa-brands fa-instagram"></i>{% endif %}
+            {% if acc['platform']|lower == 'tiktok' %}<i class="fa-brands fa-tiktok"></i>{% endif %}
+            {% if acc['platform']|lower == 'twitter' %}<i class="fa-brands fa-x-twitter"></i>{% endif %}
+            {% if acc['platform']|lower == 'youtube' %}<i class="fa-brands fa-youtube"></i>{% endif %}
+          </div>
+          <div class="acc-username">@{{ acc['account_name'] }}</div>
+          <div class="acc-platform">{{ acc['platform'] }}</div>
+
+          <form action="/delete_account" method="post"
+            onsubmit="return confirm('Delete @{{ acc.account_name }}? This removes all stats history.');">
+            <input type="hidden" name="account_id" value="{{ acc['id'] }}">
+            <button type="submit" class="btn-delete-icon" title="Remove Account">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </form>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+          <i class="fa-solid fa-ghost"></i>
+          <p>No accounts found matching this filter.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if verification_needed %}
+  <div class="modal-overlay">
+    <div class="modal">
+      <div style="font-size: 3rem; color: var(--warning); margin-bottom: 12px;">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h3 style="margin-bottom: 8px; font-size:1.1rem; color:#ffffff;">Verify Ownership</h3>
+
+      {% if message %}
+      <div class="modal-alert {% if is_error %}error{% else %}success{% endif %}">
+        <i class="fa-solid {% if is_error %}fa-triangle-exclamation{% else %}fa-check{% endif %}"></i>
+        <span>{{ message }}</span>
+      </div>
+      {% endif %}
+
+      <p style="color:var(--text-soft); margin-bottom: 18px; font-size:0.9rem; line-height:1.6;">
+        Update your <strong>{{ verify_platform|capitalize }} Bio</strong> to include this code.<br>
+        <small>(Click code to copy)</small>
+      </p>
+
+      <div class="code-box" onclick="copyCode(this)">
+        {{ verify_code }}
+        <span class="code-tooltip">Click to Copy</span>
+      </div>
+
+      <form action="/verify_account" method="post">
+        <input type="hidden" name="platform" value="{{ verify_platform }}">
+        <input type="hidden" name="username" value="{{ verify_username }}">
+        <input type="hidden" name="code" value="{{ verify_code }}">
+        <button type="submit" class="btn-primary">I've Updated My Bio</button>
+      </form>
+
+      <a href="/"
+        style="color:var(--text-soft); text-decoration:none; font-size:0.8rem; display:inline-block; margin-top:10px;">
+        Cancel Registration
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if new_video_stats %}
+  <div class="modal-overlay">
+    <div class="modal">
+      <div style="font-size: 3.2rem; color: var(--success); margin-bottom: 10px;">
+        <i class="fa-regular fa-circle-check"></i>
+      </div>
+      <h3 style="margin-bottom: 8px; font-size:1.1rem; color:#ffffff;">Submission Scraped!</h3>
+      <p style="color:var(--text-soft); font-size: 0.9rem; margin-bottom: 18px;">
+        We successfully retrieved data for your video.
+      </p>
+
+      <div
+        style="text-align:left; background:rgba(15,23,42,0.96); padding:12px; border-radius:10px; margin-bottom:16px; font-size:0.9rem; border:1px solid rgba(148,163,184,0.5);">
+        <strong style="color:#ffffff;">Title:</strong>
+        <span style="color:var(--text-soft);">{{ new_video_stats.title }}</span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-value"><i class="fa-regular fa-eye"></i> {{ new_video_stats.views }}</div>
+          <div class="stat-label">Views</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value"><i class="fa-regular fa-heart"></i> {{ new_video_stats.likes }}</div>
+          <div class="stat-label">Likes</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value"><i class="fa-regular fa-comment"></i> {{ new_video_stats.comments }}</div>
+          <div class="stat-label">Comments</div>
+        </div>
+      </div>
+
+      <a href="/" class="btn-primary" style="display:block; text-decoration:none; text-align:center;">Done</a>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <!-- --- LANDING MARKETING SECTIONS (Guest Only) --- -->
+  {% if not user_email %}
+  <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 24px;">
+    <!-- Hero Section -->
+    <section class="hero" style="padding: 180px 0 100px; display: flex; align-items: center; gap: 60px;">
+      <div class="hero-text" style="flex: 1;">
+        <div class="hero-badge"
+          style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: var(--neon); margin-bottom: 24px;">
+          <i class="fa-solid fa-bolt"></i> V3.0 Now Live
+        </div>
+        <h1
+          style="font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.04em; margin-bottom: 24px; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          Earn by Creating.<br>Grow with AI.</h1>
+        <p style="font-size: 1.125rem; color: var(--text-soft); margin-bottom: 40px; max-width: 500px;">Join global
+          campaigns, get paid for your content, and grow faster using our AI-powered viral prediction tools.</p>
+        <div class="hero-btns" style="display: flex; gap: 16px;">
+          <a href="/signup" class="btn-header"
+            style="padding: 14px 32px; background: linear-gradient(135deg, var(--primary), #818cf8); color: white; border: none; border-radius: 12px; text-decoration: none; font-weight: 700;">Get
+            Started Free</a>
+          <a href="/promotions" class="btn-header"
+            style="padding: 14px 32px; background: var(--surface); border: 1px solid var(--border); color: var(--text-main); border-radius: 12px; text-decoration: none; font-weight: 600;">Explore
+            Campaigns</a>
+        </div>
+      </div>
+      <div class="hero-visual" style="flex: 1.2; position: relative;">
+        <div class="mockup-container"
+          style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 24px; padding: 8px; border: 1px solid var(--border); box-shadow: 0 40px 100px rgba(0,0,0,0.6); transform: perspective(1000px) rotateY(-10deg) rotateX(5deg);">
+          <img src="/static/autosocial_hero_mockup.png"
+            style="width: 100%; height: auto; border-radius: 18px; display: block;" alt="Dashboard Mockup">
+        </div>
+      </div>
+    </section>
+
+    <!-- Two Paths -->
+    <div id="paths" style="padding: 100px 0;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+        <div class="card" style="padding: 60px; border-top: 4px solid var(--neon);">
+          <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 16px;">For Creators</h2>
+          <ul style="list-style: none; margin-bottom: 40px;">
+            <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--text-soft);"><i
+                class="fa-solid fa-check" style="color:var(--neon);"></i> Browse & join campaigns</li>
+            <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--text-soft);"><i
+                class="fa-solid fa-check" style="color:var(--neon);"></i> Predict virality with AI</li>
+            <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--text-soft);"><i
+                class="fa-solid fa-check" style="color:var(--neon);"></i> Secure wallet for payouts</li>
+          </ul>
+          <a href="/signup?role=creator" class="btn-header"
+            style="background:var(--neon); color:#020617; width:100%; text-align:center; font-weight:800; border-radius:12px; text-decoration:none; padding:16px;">Start
+            as Creator</a>
+        </div>
+        <div class="card" style="padding: 60px; border-top: 4px solid var(--primary);">
+          <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 16px;">For Brands</h2>
+          <ul style="list-style: none; margin-bottom: 40px;">
+            <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--text-soft);"><i
+                class="fa-solid fa-check" style="color:var(--primary);"></i> Post custom campaigns</li>
+            <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--text-soft);"><i
+                class="fa-solid fa-check" style="color:var(--primary);"></i> Hire top creators instantly</li>
+            <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--text-soft);"><i
+                class="fa-solid fa-check" style="color:var(--primary);"></i> Real-time ROI analytics</li>
+          </ul>
+          <a href="/signup?role=brand" class="btn-header"
+            style="background:var(--primary); color:white; width:100%; text-align:center; font-weight:800; border-radius:12px; text-decoration:none; padding:16px;">Start
+            as Brand</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Feature -->
+    <section style="padding: 100px 0; display: flex; align-items: center; gap: 80px;">
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
+        <div class="card" style="padding: 16px 20px; border-radius: 20px; max-width: 80%;">
+          <strong>@Nike_Brand</strong>
+          <p>Hey! Loved your last reel. Would you like to join our upcoming marathon campaign?</p>
+        </div>
+        <div class="card"
+          style="padding: 16px 20px; margin-left: auto; background: var(--neon-glow); border-color: var(--neon); max-width: 80%; border-radius: 20px;">
+          <strong>@Creator_Star</strong>
+          <p>I'm in! Let's discuss the hooks. Should I use the high-energy AI suggestion?</p>
+        </div>
+      </div>
+      <div style="flex: 1;">
+        <h2 style="font-size: 2.25rem; font-weight: 800; margin-bottom: 16px;">Collaborate in Real-Time</h2>
+        <p style="color: var(--text-soft); font-size: 1.1rem; margin-bottom: 24px;">No more messy email threads. Discuss
+          content ideas, get faster approvals, and build lasting relationships through our integrated chat system.</p>
+      </div>
+    </section>
+  </div>
+  {% endif %}
+
+  <footer
+    style="padding: 60px 0; border-top: 1px solid var(--border); text-align: center; color: var(--text-soft); font-size: 0.9rem;">
+    <p>&copy; 2026 AutoSocial Platform. All rights reserved.</p>
+  </footer>
+
+  <!-- LLM RESULT MODAL -->
+  <div id="llm-modal" class="modal-overlay" style="display:none;">
+    <div class="modal" id="llm-modal-inner" style="
+        max-width: 720px;
+        width: 95%;
+        text-align: left;
+        padding: 26px 26px 22px;
+        background: radial-gradient(circle at top left, rgba(148,163,184,0.14), transparent 55%),
+                    radial-gradient(circle at bottom right, rgba(56,189,248,0.18), transparent 55%),
+                    linear-gradient(160deg, rgba(15,23,42,0.96), rgba(15,23,42,0.99));
+        border-radius: 22px;
+        border: 1px solid rgba(148,163,184,0.55);
+        box-shadow: 0 40px 120px rgba(0,0,0,0.95);
+        backdrop-filter: blur(26px);
+        -webkit-backdrop-filter: blur(26px);
+        position: relative;
+        overflow: hidden;
+      ">
+      <!-- subtle glow accent -->
+      <div style="
+          position:absolute;
+          inset:-40%;
+          opacity:0.18;
+          background:
+            radial-gradient(circle at 10% 0%, rgba(45,212,191,0.8), transparent 55%),
+            radial-gradient(circle at 90% 100%, rgba(94,234,212,0.7), transparent 55%);
+          pointer-events:none;
+          mix-blend-mode:screen;
+        "></div>
+
+      <div style="position:relative; z-index:1;">
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:16px;
+          ">
+          <div>
+            <div style="
+                font-size:0.72rem;
+                text-transform:uppercase;
+                letter-spacing:0.18em;
+                color:rgba(148,163,184,0.9);
+                margin-bottom:4px;
+              ">
+              Viral content package
+            </div>
+            <h3 id="llm-modal-title" style="
+                font-size:1.12rem;
+                color:#f9fafb;
+                margin:0;
+                display:inline-flex;
+                align-items:center;
+                gap:8px;
+              ">
+              Generated Package
+              <span id="llm-modal-platform-pill" style="
+                  font-size:0.7rem;
+                  text-transform:uppercase;
+                  letter-spacing:0.16em;
+                  padding:3px 8px;
+                  border-radius:999px;
+                  border:1px solid rgba(148,163,184,0.45);
+                  color:#e5e7eb;
+                  background:rgba(15,23,42,0.8);
+                ">
+              </span>
+            </h3>
+          </div>
+
+          <button type="button" onclick="closeLlmModal()" style="
+              background:rgba(15,23,42,0.7);
+              border:1px solid rgba(148,163,184,0.5);
+              color:#9ca3af;
+              font-size:0.95rem;
+              cursor:pointer;
+              border-radius:999px;
+              padding:6px 10px;
+              display:inline-flex;
+              align-items:center;
+              gap:6px;
+              backdrop-filter:blur(18px);
+              -webkit-backdrop-filter:blur(18px);
+              transition:background .18s ease, border-color .18s ease, color .18s ease, transform .12s ease;
+            ">
+            <i class="fa-solid fa-xmark"></i>
+            <span style="font-size:0.78rem;">Close</span>
+          </button>
+        </div>
+
+        <div style="
+            height:1px;
+            width:100%;
+            margin-bottom:12px;
+            background:linear-gradient(90deg, transparent, rgba(148,163,184,0.6), transparent);
+          "></div>
+
+        <!-- Progress bar -->
+        <div style="margin-bottom:14px; width:100%;">
+          <div style="
+              width:100%;
+              height:4px;
+              border-radius:999px;
+              background:rgba(15,23,42,0.9);
+              overflow:hidden;
+              border:1px solid rgba(148,163,184,0.4);
+            ">
+            <div id="llm-progress-bar" style="
+                height:100%;
+                width:0%;
+                border-radius:999px;
+                background:linear-gradient(90deg,#22c55e,#a3e635,#facc15);
+                box-shadow:0 0 14px rgba(190,242,100,0.7);
+                transition:width 0.15s linear;
+              "></div>
+          </div>
+          <div id="llm-progress-label" style="
+              margin-top:6px;
+              font-size:0.74rem;
+              color:#9ca3af;
+              text-align:right;
+              letter-spacing:0.16em;
+              text-transform:uppercase;
+            ">
+            Preparing...
+          </div>
+        </div>
+
+        <!-- Instagram block -->
+        <div id="modal-instagram-block" style="display:none; display:grid; gap:10px; margin-bottom:10px;">
+          <div class="llm-field-box">
+            <div class="llm-field-label">Hook</div>
+            <div id="m-hook" class="llm-field-value"></div>
+          </div>
+          <div class="llm-field-box">
+            <div class="llm-field-label">Caption</div>
+            <div id="m-caption" class="llm-field-value"></div>
+          </div>
+          <div class="llm-field-box">
+            <div class="llm-field-label">Description</div>
+            <div id="m-description" class="llm-field-value"></div>
+          </div>
+          <div class="llm-field-box">
+            <div class="llm-field-label">CTA</div>
+            <div id="m-cta" class="llm-field-value"></div>
+          </div>
+          <div class="llm-field-box">
+            <div class="llm-field-label">Hashtags</div>
+            <div id="m-hashtags" class="llm-field-value"></div>
+          </div>
+        </div>
+
+        <!-- YouTube block -->
+        <div id="modal-youtube-block" style="display:none; display:grid; gap:10px; margin-bottom:10px;">
+          <div class="llm-field-box">
+            <div class="llm-field-label">Title</div>
+            <div id="m-title" class="llm-field-value"></div>
+          </div>
+          <div class="llm-field-box">
+            <div class="llm-field-label">Description</div>
+            <div id="m-yt-description" class="llm-field-value"></div>
+          </div>
+          <div class="llm-field-box">
+            <div class="llm-field-label">Tags</div>
+            <div id="m-yt-tags" class="llm-field-value"></div>
+          </div>
+        </div>
+
+        <!-- TikTok block -->
+        <div id="modal-tiktok-block" style="display:none; display:grid; gap:10px; margin-bottom:10px;">
+          <div class="llm-field-box">
+            <div class="llm-field-label">Caption</div>
+            <div id="m-tiktok-caption" class="llm-field-value"></div>
+          </div>
+          <div class="llm-field-box">
+            <div class="llm-field-label">Hashtags</div>
+            <div id="m-tiktok-hashtags" class="llm-field-value"></div>
+          </div>
+        </div>
+
+        <!-- Twitter block -->
+        <div id="modal-twitter-block" style="display:none; display:grid; gap:10px; margin-bottom:10px;">
+          <div class="llm-field-box">
+            <div class="llm-field-label">Tweet</div>
+            <div id="m-tweet-text" class="llm-field-value"></div>
+          </div>
+          <div class="llm-field-box">
+            <div class="llm-field-label">Hashtags</div>
+            <div id="m-tweet-hashtags" class="llm-field-value"></div>
+          </div>
+        </div>
+
+        <div style="
+            margin-top:6px;
+            display:flex;
+            gap:12px;
+            font-size:0.82rem;
+            color:#9ca3af;
+            align-items:center;
+            flex-wrap:wrap;
+          ">
+          <div>
+            <span style="opacity:0.8;">Hook Score</span>:
+            <span id="m-hook-score" style="color:#a5f3fc;"></span>/10
+          </div>
+          <div>
+            <span style="opacity:0.8;">Virality</span>:
+            <span id="m-virality-score" style="color:#bef264;"></span>/100
+          </div>
+          <div style="
+              margin-left:auto;
+              font-size:0.78rem;
+              padding:3px 8px;
+              border-radius:999px;
+              border:1px solid rgba(148,163,184,0.4);
+              background:rgba(15,23,42,0.92);
+            ">
+            <i class="fa-solid fa-bolt-lightning" style="color:#fde68a; margin-right:6px;"></i>
+            <span style="color:#e5e7eb;">LLM Generated</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleAccounts() {
+      const wrapper = document.getElementById('accountsWrapper');
+      const btn = document.getElementById('toggleBtn');
+      const isHidden = wrapper.style.maxHeight === '0px';
+
+      if (isHidden) {
+        wrapper.style.maxHeight = wrapper.scrollHeight + "px";
+        wrapper.style.opacity = "1";
+        wrapper.style.marginTop = "0px";
+        btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Hide';
+      } else {
+        wrapper.style.maxHeight = "0px";
+        wrapper.style.opacity = "0";
+        wrapper.style.marginTop = "-10px";
+        btn.innerHTML = '<i class="fa-solid fa-eye"></i> Show';
+      }
+    }
+
+    function copyCode(element) {
+      const text = element.innerText.replace('Click to Copy', '').trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const tooltip = element.querySelector('.code-tooltip');
+        const originalText = tooltip.innerText;
+
+        tooltip.innerText = "Copied!";
+        tooltip.style.background = "#10b981";
+
+        setTimeout(() => {
+          tooltip.innerText = originalText;
+          tooltip.style.background = "#020617";
+        }, 2000);
+      });
+    }
+
+    // -------- typewriter + reset helpers --------
+
+    const typewriterTimers = {};
+
+    function stopTypeInto(element) {
+      const id = element && element.id;
+      if (id && typewriterTimers[id]) {
+        clearInterval(typewriterTimers[id]);
+        delete typewriterTimers[id];
+      }
+    }
+
+    function typeInto(element, text, delay = 15) {
+      if (!element) return;
+      stopTypeInto(element);
+      element.innerText = "";
+      let i = 0;
+      const elId = element.id;
+      const timer = setInterval(() => {
+        if (i >= text.length) {
+          clearInterval(timer);
+          if (elId) delete typewriterTimers[elId];
+          return;
+        }
+        element.innerText += text[i] || "";
+        i++;
+      }, delay);
+      if (elId) typewriterTimers[elId] = timer;
+    }
+
+    function resetLlmModalFields() {
+      const ids = [
+        "m-hook",
+        "m-caption",
+        "m-description",
+        "m-cta",
+        "m-hashtags",
+        "m-title",
+        "m-yt-description",
+        "m-yt-tags",
+        "m-tiktok-caption",
+        "m-tiktok-hashtags",
+        "m-tweet-text",
+        "m-tweet-hashtags",
+        "m-hook-score",
+        "m-virality-score"
+      ];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          stopTypeInto(el);
+          el.innerText = "";
+        }
+      });
+    }
+
+    // -------- progress bar helpers --------
+
+    let progressTimer = null;
+    let progressValue = 0;
+
+    function resetProgress() {
+      const bar = document.getElementById("llm-progress-bar");
+      const label = document.getElementById("llm-progress-label");
+      if (bar) bar.style.width = "0%";
+      if (label) label.innerText = "Preparing...";
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+      }
+      progressValue = 0;
+    }
+
+    function startProgress() {
+      resetProgress();
+      const bar = document.getElementById("llm-progress-bar");
+      const label = document.getElementById("llm-progress-label");
+      progressTimer = setInterval(() => {
+        if (progressValue < 70) {
+          progressValue += 3;
+        } else if (progressValue < 90) {
+          progressValue += 1;
+        } else if (progressValue < 97) {
+          progressValue += 0.5;
+        }
+        if (progressValue > 97) progressValue = 97;
+        if (bar) bar.style.width = progressValue + "%";
+        if (label) label.innerText = "Generating " + Math.round(progressValue) + "%";
+      }, 120);
+    }
+
+    function finishProgress() {
+      const bar = document.getElementById("llm-progress-bar");
+      const label = document.getElementById("llm-progress-label");
+      if (bar) bar.style.width = "100%";
+      if (label) label.innerText = "Ready 100%";
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+      }
+      progressValue = 100;
+    }
+
+    function openLlmModal(platformLabel) {
+      resetLlmModalFields();
+      resetProgress();
+      document.getElementById("llm-modal").style.display = "flex";
+      const pill = document.getElementById("llm-modal-platform-pill");
+      if (pill) pill.textContent = platformLabel || "";
+      startProgress();
+    }
+
+    function closeLlmModal() {
+      resetLlmModalFields();
+      resetProgress();
+      document.getElementById("llm-modal").style.display = "none";
+    }
+
+    // -------- main logic --------
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const wrapper = document.getElementById('accountsWrapper');
+      if (wrapper) {
+        wrapper.style.maxHeight = wrapper.scrollHeight + "px";
+        wrapper.style.opacity = "1";
+      }
+
+      const llmForm = document.getElementById("llm-form");
+      if (llmForm) {
+        llmForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const topic = document.getElementById("llm-topic").value.trim();
+          const audience = document.getElementById("llm-audience").value.trim();
+          const goal = document.getElementById("llm-goal").value;
+          const platform = document.getElementById("llm-platform").value;
+
+          const platformLabelMap = {
+            instagram: "Instagram Reels",
+            youtube: "YouTube Shorts",
+            tiktok: "TikTok",
+            twitter: "Twitter / X"
+          };
+
+          openLlmModal(platformLabelMap[platform]);
+
+          const titleEl = document.getElementById("llm-modal-title");
+
+          // Hide all blocks first
+          document.getElementById("modal-instagram-block").style.display = "none";
+          document.getElementById("modal-youtube-block").style.display = "none";
+          document.getElementById("modal-tiktok-block").style.display = "none";
+          document.getElementById("modal-twitter-block").style.display = "none";
+
+          // Show correct block
+          if (platform === "instagram") {
+            titleEl.innerText = "Generated Instagram Reel Package";
+            document.getElementById("modal-instagram-block").style.display = "grid";
+          } else if (platform === "youtube") {
+            titleEl.innerText = "Generated YouTube Shorts Package";
+            document.getElementById("modal-youtube-block").style.display = "grid";
+          } else if (platform === "tiktok") {
+            titleEl.innerText = "Generated TikTok Package";
+            document.getElementById("modal-tiktok-block").style.display = "grid";
+          } else {
+            titleEl.innerText = "Generated Twitter / X Package";
+            document.getElementById("modal-twitter-block").style.display = "grid";
+          }
+
+          resetLlmModalFields();
+
+          try {
+            const resp = await fetch("/instagram", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ topic, audience, goal, platform })
+            });
+
+            if (!resp.ok) {
+              typeInto(
+                document.getElementById("m-hook"),
+                "Error: " + resp.status + " " + resp.statusText
+              );
+              finishProgress();
+              return;
+            }
+
+            const data = await resp.json();
+
+            if (platform === "instagram") {
+              typeInto(document.getElementById("m-hook"), data.hook || "");
+              typeInto(document.getElementById("m-caption"), data.caption || "");
+              typeInto(document.getElementById("m-description"), data.description || "");
+              typeInto(document.getElementById("m-cta"), data.cta || "");
+              typeInto(
+                document.getElementById("m-hashtags"),
+                (data.hashtags || []).join(" ")
+              );
+            } else if (platform === "youtube") {
+              typeInto(document.getElementById("m-title"), data.title || "");
+              typeInto(
+                document.getElementById("m-yt-description"),
+                data.yt_description || ""
+              );
+              typeInto(
+                document.getElementById("m-yt-tags"),
+                (data.yt_tags || []).join(", ")
+              );
+            } else if (platform === "tiktok") {
+              typeInto(
+                document.getElementById("m-tiktok-caption"),
+                data.tiktok_caption || ""
+              );
+              typeInto(
+                document.getElementById("m-tiktok-hashtags"),
+                (data.tiktok_hashtags || []).join(" ")
+              );
+            } else {
+              typeInto(
+                document.getElementById("m-tweet-text"),
+                data.tweet_text || ""
+              );
+              typeInto(
+                document.getElementById("m-tweet-hashtags"),
+                (data.tweet_hashtags || []).join(" ")
+              );
+            }
+
+            document.getElementById("m-hook-score").innerText =
+              data.hook_score != null ? data.hook_score : "";
+            document.getElementById("m-virality-score").innerText =
+              data.virality_score != null ? data.virality_score : "";
+
+            finishProgress();
+          } catch (err) {
+            typeInto(
+              document.getElementById("m-hook"),
+              "Request failed: " + (err && err.message ? err.message : err)
+            );
+            finishProgress();
+          }
+        });
+      }
+    });
+  </script>
+
+  <!-- Create Campaign Modal -->
+  <div id="campaignModal" class="modal-overlay" style="display:none;">
+    <div class="modal campaign-modal">
+      <button type="button" onclick="closeCampaignModal()" class="modal-close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 class="campaign-title">
+        Create Campaign
+      </h3>
+      <p class="campaign-subtitle">
+        Set up a campaign influencers will love to work with.
+      </p>
+
+      <form action="/campaigns/create" method="post" enctype="multipart/form-data">
+        <!-- Scrollable content -->
+        <div class="campaign-form-scroll">
+          <!-- Name -->
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-heading"></i>
+              <input type="text" name="title" required placeholder="Campaign name">
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <div class="input-wrapper input-wrapper-textarea">
+              <i class="fa-solid fa-align-left"></i>
+              <textarea name="description" rows="3" placeholder="Describe what this campaign is about"></textarea>
+            </div>
+          </div>
+
+          <!-- Platforms -->
+          <div class="form-group">
+            <label class="form-label">Platforms</label>
+
+            <!-- Primary select: ALL or SPECIFIC -->
+            <div class="input-wrapper">
+              <i class="fa-brands fa-square-instagram"></i>
+              <select name="platform_mode" id="platform_mode" onchange="onPlatformModeChange()">
+                <option value="all" selected>All platforms</option>
+                <option value="custom">Select specific platforms</option>
+              </select>
+            </div>
+
+            <!-- Specific platforms checkboxes (shown only when custom) -->
+            <div id="platform_custom_group" class="platform-custom-group" style="display:none; margin-top:8px;">
+              <div class="platform-chip-row">
+                <label class="platform-chip">
+                  <input type="checkbox" name="platforms" value="instagram">
+                  <span><i class="fa-brands fa-instagram"></i> Instagram</span>
+                </label>
+                <label class="platform-chip">
+                  <input type="checkbox" name="platforms" value="youtube">
+                  <span><i class="fa-brands fa-youtube"></i> YouTube</span>
+                </label>
+                <label class="platform-chip">
+                  <input type="checkbox" name="platforms" value="tiktok">
+                  <span><i class="fa-brands fa-tiktok"></i> TikTok</span>
+                </label>
+                <label class="platform-chip">
+                  <input type="checkbox" name="platforms" value="twitter">
+                  <span><i class="fa-brands fa-x-twitter"></i> Twitter</span>
+                </label>
+              </div>
+              <small class="form-hint">
+                Choose one or more platforms when using "Select specific platforms".
+              </small>
+            </div>
+          </div>
+
+          <!-- Type -->
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-layer-group"></i>
+              <select name="campaign_type" required>
+                <option value="podcasts">Podcasts</option>
+                <option value="irl-content">IRL Content</option>
+                <option value="sport">Sport</option>
+                <option value="gaming">Gaming</option>
+                <option value="music">Music</option>
+                <option value="gambling">Gambling</option>
+                <option value="brands">Brands</option>
+                <option value="film-and-tv">Film &amp; TV</option>
+                <option value="others">Others</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Image upload -->
+          <div class="form-group">
+            <label class="form-label">Campaign Image</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-image"></i>
+              <input type="file" name="image" accept="image/*" class="file-input">
+            </div>
+            <small class="form-hint">
+              Upload a thumbnail/banner that represents this campaign.
+            </small>
+          </div>
+
+          <!-- Budget -->
+          <div class="form-group">
+            <label class="form-label">Budget (USD)</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-dollar-sign"></i>
+              <input type="number" name="budget" min="0" step="0.01" placeholder="Enter total budget e.g. 500" required>
+            </div>
+            <small class="form-hint">
+              Total budget you plan to spend on this campaign.
+            </small>
+          </div>
+        </div>
+
+        <!-- Fixed footer actions (not overlapping) -->
+        <div class="campaign-actions">
+          <button type="button" class="btn-secondary" onclick="closeCampaignModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary">
+            Save Campaign
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 10, 18, 0.75);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1000;
+    }
+
+    .modal.campaign-modal {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.98));
+      padding: 24px 24px 18px;
+      border-radius: 20px;
+      max-width: 480px;
+      width: 90%;
+      text-align: left;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, .9);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      position: relative;
+      animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
+      /* modal never exceeds viewport */
+    }
+
+    .campaign-title {
+      margin: 0 0 4px;
+      font-size: 1.05rem;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .campaign-subtitle {
+      margin: 0 0 12px;
+      color: var(--text-soft);
+      font-size: 0.85rem;
+    }
+
+    /* scrollable area containing all fields */
+    .campaign-form-scroll {
+      overflow-y: auto;
+      max-height: 60vh;
+      /* space left for buttons */
+      padding-right: 4px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-soft);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-wrapper i {
+      position: absolute;
+      left: 12px;
+      color: #7c8796;
+      font-size: 0.9rem;
+      pointer-events: none;
+      transition: color 0.2s ease;
+    }
+
+    .input-wrapper input,
+    .input-wrapper textarea,
+    .input-wrapper select {
+      width: 100%;
+      padding: 10px 12px 10px 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      font-family: inherit;
+      font-size: 0.9rem;
+      color: var(--text-main);
+      background: rgba(6, 10, 17, 0.92);
+      outline: none;
+      resize: vertical;
+      min-height: 42px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .input-wrapper textarea {
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+
+    .input-wrapper input::placeholder,
+    .input-wrapper textarea::placeholder {
+      color: rgba(148, 163, 184, 0.8);
+    }
+
+    .input-wrapper input:focus,
+    .input-wrapper textarea:focus,
+    .input-wrapper select:focus {
+      border-color: var(--accent-neon);
+      box-shadow: 0 0 0 1px rgba(108, 242, 213, 0.6);
+      background: rgba(6, 10, 17, 1);
+    }
+
+    .input-wrapper:focus-within i {
+      color: var(--accent-neon);
+    }
+
+    .file-input {
+      padding-left: 40px;
+      cursor: pointer;
+    }
+
+    .form-hint {
+      display: block;
+      margin-top: 4px;
+      color: var(--text-soft);
+      font-size: 0.75rem;
+    }
+
+    .platform-custom-group {
+      margin-top: 8px;
+    }
+
+    .platform-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .platform-chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      color: #e5e7eb;
+      cursor: pointer;
+      background: rgba(15, 23, 42, 0.9);
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+    }
+
+    .platform-chip input {
+      display: none;
+    }
+
+    .platform-chip span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .platform-chip i {
+      position: static;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    .platform-chip:hover {
+      border-color: rgba(248, 250, 252, 0.7);
+      transform: translateY(-1px);
+    }
+
+    .platform-chip input:checked+span {
+      color: #0f172a;
+      background: linear-gradient(135deg, var(--accent-neon), #4dd0e1);
+      border-radius: 999px;
+      padding: 3px 9px;
+    }
+
+    .platform-chip input:checked+span i {
+      color: #0f172a;
+    }
+
+    /* footer buttons pinned under scroll area */
+    .campaign-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(148, 163, 184, 0.35);
+      flex-shrink: 0;
+      background: transparent;
+    }
+
+    .btn-secondary {
+      padding: 9px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease,
+        border-color 0.18s ease, transform 0.12s ease;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(15, 23, 42, 1);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: #e5e7eb;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent-neon), #4dd0e1);
+      color: #020617;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, .8);
+      transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      background: linear-gradient(135deg, #4dd0e1, var(--accent-neon));
+      box-shadow: 0 26px 70px rgba(0, 0, 0, .9);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, .85);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-soft);
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 4px;
+      border-radius: 999px;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
+    }
+
+    .modal-close:hover {
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      transform: translateY(-1px);
+    }
+
+    @keyframes popIn {
+      0% {
+        transform: scale(0.94);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+  </style>
+
+  <script>
+    function openCampaignModal() {
+      const modal = document.getElementById("campaignModal");
+      if (modal) modal.style.display = "flex";
+    }
+    function closeCampaignModal() {
+      const modal = document.getElementById("campaignModal");
+      if (modal) modal.style.display = "none";
+    }
+    function onPlatformModeChange() {
+      const modeSelect = document.getElementById("platform_mode");
+      const customGroup = document.getElementById("platform_custom_group");
+      if (!modeSelect || !customGroup) return;
+      if (modeSelect.value === "custom") {
+        customGroup.style.display = "block";
+      } else {
+        customGroup.style.display = "none";
+        customGroup.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      }
+    }
+  </script>
+
+
+
+</body>
+
+</html>
