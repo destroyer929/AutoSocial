@@ -27,6 +27,7 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect
 )
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -105,6 +106,15 @@ except ImportError as e:
 
 # --- APP CONFIGURATION ---
 app = FastAPI(title="Social Media Automation Dashboard", lifespan=lifespan)
+
+# Allow CORS for Next.js development server
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.middleware("http")
 async def update_last_active(request: Request, call_next):
