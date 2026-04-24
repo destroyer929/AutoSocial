@@ -181,14 +181,6 @@ def get_current_user(request: Request):
 def get_registered_accounts(web_user_id: int, platform_filter=None):
     """
     Fetches registered accounts for the logged-in web user.
-
-    IMPORTANT:
-    registered_accounts table must have:
-        web_user_id BIGINT NOT NULL
-        platform VARCHAR
-        account_name VARCHAR
-    and your Discord/bot user_id, if any, should be in another column
-    (e.g. bot_user_id) so they are not mixed.
     """
     accounts = []
     try:
@@ -216,6 +208,90 @@ def get_registered_accounts(web_user_id: int, platform_filter=None):
     except Exception as e:
         logger.error(f"Error fetching accounts: {e}")
     return accounts
+
+# ==========================================
+#           JSON API ENDPOINTS
+# ==========================================
+
+@app.get("/api/me")
+async def api_get_me(request: Request):
+    user_id = get_current_user(request)
+    if not user_id:
+        return JSONResponse({"logged_in": False}, status_code=401)
+    return {"logged_in": True, "user_email": request.session.get("email"), "user_id": user_id}
+
+@app.post("/api/login")
+async def api_login(request: Request, data: dict):
+    email = data.get("email")
+    password = data.get("password")
+    user = get_app_user_by_email(email)
+    if user and verify_password(password, user["password_hash"]):
+        if not user["is_verified"]:
+            return JSONResponse({"error": "Email not verified", "needs_verification": True, "email": email}, status_code=403)
+        request.session["user_id"] = user["id"]
+        request.session["email"] = user["email"]
+        return {"success": True, "user": {"email": user["email"]}}
+    return JSONResponse({"error": "Invalid credentials"}, status_code=401)
+
+@app.post("/api/signup")
+async def api_signup(request: Request, data: dict):
+    email = data.get("email")
+    password = data.get("password")
+    if get_app_user_by_email(email):
+        return JSONResponse({"error": "Email already exists"}, status_code=400)
+    code = str(random.randint(10000, 99999))
+    create_app_user(email, password, code)
+    send_real_email(email, "Verify Your AutoSocial Account", f"Your verification code is: {code}")
+    return {"success": True, "message": "Check your email for the verification code."}
+
+@app.get("/api/accounts")
+async def api_get_accounts(request: Request, platform: str = "all"):
+    user_id = get_current_user(request)
+    if not user_id:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    accounts = get_registered_accounts(user_id, platform)
+    # Convert DictCursor results to regular dicts for JSON
+    return [{"id": a["id"], "platform": a["platform"], "account_name": a["account_name"]} for a in accounts]
+
+@app.get("/api/promotions")
+async def api_get_promotions(request: Request, q: str = ""):
+    promos = list_promotions(q)
+    return {"promotions": [dict(p) for p in promos]}
+
+@app.get("/api/promotions/{promo_id}")
+async def api_get_promotion_detail(promo_id: int, request: Request):
+    user_id = get_current_user(request)
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM promotions WHERE id = %s", (promo_id,))
+            promo = cur.fetchone()
+            if not promo:
+                raise HTTPException(status_code=404, detail="Promotion not found")
+            
+            is_joined = False
+            if user_id:
+                cur.execute("SELECT 1 FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promo_id, user_id))
+                is_joined = cur.fetchone() is not None
+            
+            return {
+                "promotion": dict(promo),
+                "is_joined": is_joined,
+                "user_email": request.session.get("email") if user_id else None
+            }
+
+@app.get("/api/stats")
+async def api_get_stats(request: Request, platform: str = "all", account: str = "all"):
+    user_id = get_current_user(request)
+    if not user_id:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    # Simple mock/logic placeholder for stats
+    return {
+        "stats": [],
+        "total_views": 0,
+        "total_likes": 0,
+        "all_accounts": []
+    }
 
 
 # ==========================================

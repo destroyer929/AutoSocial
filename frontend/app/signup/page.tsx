@@ -1,23 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 export default function SignupPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
-
-  useEffect(() => {
-    const error = searchParams.get("error");
-    if (error) {
-      setMessage({ text: error, isError: true });
-    }
-  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +19,25 @@ export default function SignupPage() {
       setMessage({ text: "Passwords do not match!", isError: true });
       return;
     }
-    console.log("Signup attempt:", { email, password });
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const data = await apiFetch("/api/signup", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (data.success) {
+        setMessage({ text: data.message, isError: false });
+        // In real app, redirect to verification page
+      }
+    } catch (err: any) {
+      setMessage({ text: err.message || "Signup failed", isError: true });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,13 +74,6 @@ export default function SignupPage() {
           position: relative;
           overflow: hidden;
         }
-        .auth-card::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(420px circle at top left, rgba(255, 255, 255, .1), transparent 50%);
-          pointer-events: none;
-        }
         .logo {
           font-size: 1.8rem;
           font-weight: 700;
@@ -97,17 +102,6 @@ export default function SignupPage() {
           margin-bottom: 8px;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-        }
-        .input-wrapper {
-          position: relative;
-        }
-        .input-wrapper i {
-          position: absolute;
-          left: 15px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #7c8796;
-          font-size: 1rem;
         }
         input {
           width: 100%;
@@ -138,10 +132,7 @@ export default function SignupPage() {
           margin-top: 10px;
           box-shadow: 0 20px 45px rgba(0, 0, 0, .7);
         }
-        .btn-submit:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 25px 60px rgba(0, 0, 0, .9);
-        }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
         .auth-footer {
           margin-top: 25px;
           font-size: 0.9rem;
@@ -164,6 +155,7 @@ export default function SignupPage() {
           border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .alert-error { background: rgba(239, 68, 68, 0.1); color: #fecaca; border-color: rgba(239, 68, 68, 0.4); }
+        .alert-success { background: rgba(16, 185, 129, 0.1); color: #bbf7d0; border-color: rgba(16, 185, 129, 0.4); }
       `}</style>
 
       <div className="auth-container">
@@ -183,8 +175,8 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="label">Email Address</label>
-              <div className="input-wrapper">
-                <i className="fa-regular fa-envelope"></i>
+              <div style={{ position: "relative" }}>
+                <i className="fa-regular fa-envelope" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#7c8796" }}></i>
                 <input
                   type="email"
                   placeholder="name@example.com"
@@ -197,8 +189,8 @@ export default function SignupPage() {
 
             <div className="form-group">
               <label className="label">Create Password</label>
-              <div className="input-wrapper">
-                <i className="fa-solid fa-lock"></i>
+              <div style={{ position: "relative" }}>
+                <i className="fa-solid fa-lock" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#7c8796" }}></i>
                 <input
                   type="password"
                   placeholder="Min. 6 characters"
@@ -212,8 +204,8 @@ export default function SignupPage() {
 
             <div className="form-group">
               <label className="label">Confirm Password</label>
-              <div className="input-wrapper">
-                <i className="fa-solid fa-check-double"></i>
+              <div style={{ position: "relative" }}>
+                <i className="fa-solid fa-check-double" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#7c8796" }}></i>
                 <input
                   type="password"
                   placeholder="Re-enter password"
@@ -224,8 +216,8 @@ export default function SignupPage() {
               </div>
             </div>
 
-            <button type="submit" className="btn-submit">
-              Create Account
+            <button type="submit" className="btn-submit" disabled={loading}>
+              {loading ? "Creating Account..." : "Create Account"}
             </button>
           </form>
 

@@ -5,9 +5,11 @@ import Header from "@/components/Header";
 import CampaignModal from "@/components/CampaignModal";
 import LLMModal from "@/components/LLMModal";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
 
 export default function Dashboard() {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const { user } = useAuth();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [currentPlatform, setCurrentPlatform] = useState("all");
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
@@ -19,15 +21,24 @@ export default function Dashboard() {
   const [llmProgress, setLlmProgress] = useState(0);
   const [showAccounts, setShowAccounts] = useState(true);
 
+  useEffect(() => {
+    if (user) {
+      const fetchAccounts = async () => {
+        try {
+          const data = await apiFetch(`/api/accounts?platform=${currentPlatform}`);
+          setAccounts(data);
+        } catch (err) {
+          console.error("Failed to fetch accounts");
+        }
+      };
+      fetchAccounts();
+    }
+  }, [user, currentPlatform]);
+
   const handleLlmSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const topic = formData.get("topic") as string;
-    const audience = formData.get("audience") as string;
-    const goal = formData.get("goal") as string;
-    const platform = formData.get("platform") as string;
-
-    setLlmPlatform(platform);
+    setLlmPlatform(formData.get("platform") as string);
     setIsLLMModalOpen(true);
     setLlmProgress(0);
     setLlmData(null);
@@ -37,17 +48,20 @@ export default function Dashboard() {
     }, 200);
 
     try {
-      const data = await apiFetch("/instagram", {
-        method: "POST",
-        body: JSON.stringify({ topic, audience, goal, platform }),
-      });
-      clearInterval(interval);
-      setLlmProgress(100);
-      setLlmData(data);
+      // Mocking LLM generation for now
+      setTimeout(() => {
+        clearInterval(interval);
+        setLlmProgress(100);
+        setLlmData({
+          hook: "Unlock the secret to 10x growth with this one simple trick...",
+          caption: "Growth is not a destination, it's a journey. Start yours today. #growth #mindset",
+          hashtags: ["#growth", "#success", "#mindset", "#entrepreneur"]
+        });
+      }, 2000);
     } catch (err) {
       clearInterval(interval);
       setLlmProgress(100);
-      setLlmData({ hook: "Request failed. Check backend connection." });
+      setLlmData({ hook: "Generation failed." });
     }
   };
 
@@ -64,13 +78,10 @@ export default function Dashboard() {
         pointerEvents: "none", zIndex: -1
       }}></div>
 
-      <Header 
-        userEmail={userEmail} 
-        onOpenCampaignModal={() => setIsCampaignModalOpen(true)} 
-      />
+      <Header />
 
-      {userEmail ? (
-        <div className="container" style={{ paddingTop: "120px" }}>
+      {user ? (
+        <div className="container" style={{ paddingTop: "20px" }}>
           {message && (
             <div className={`alert ${message.isError ? "alert-error" : "alert-success"}`}>
               <i className={`fa-solid ${message.isError ? "fa-circle-exclamation" : "fa-circle-check"}`}></i>
@@ -78,7 +89,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="action-grid">
+          <div className="action-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "24px", marginBottom: "48px" }}>
             <div className="card submit-card">
               <h2>
                 <i className="fa-solid fa-cloud-arrow-up" style={{ color: "var(--accent-neon)" }}></i>
@@ -133,28 +144,21 @@ export default function Dashboard() {
                     <input type="text" name="account_name" placeholder="username (no @)" required />
                   </div>
                 </div>
-                <button type="submit" className="btn-primary btn-green">Register Account</button>
+                <button type="submit" className="btn-primary" style={{ background: "linear-gradient(135deg, var(--accent-gold), #fbbf24)" }}>Register Account</button>
               </form>
             </div>
 
             <div className="card submit-card">
               <h2>
                 <i className="fa-solid fa-wand-magic-sparkles" style={{ color: "var(--accent-neon)" }}></i>
-                Generate Viral Content
+                AI Viral Content
               </h2>
               <form onSubmit={handleLlmSubmit}>
                 <div className="form-group">
                   <label>Topic</label>
                   <div className="input-wrapper">
                     <i className="fa-solid fa-lightbulb"></i>
-                    <input type="text" name="topic" placeholder="e.g. Mindset for young entrepreneurs" required />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Audience</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-users"></i>
-                    <input type="text" name="audience" placeholder="e.g. 18–24 founders on Instagram" required />
+                    <input type="text" name="topic" placeholder="e.g. Mindset for founders" required />
                   </div>
                 </div>
                 <div className="form-group">
@@ -164,77 +168,53 @@ export default function Dashboard() {
                     <select name="goal" required>
                       <option value="followers">Followers</option>
                       <option value="views">Views</option>
-                      <option value="reach">Reach</option>
-                      <option value="saves">Saves</option>
                     </select>
                   </div>
                 </div>
-                <div className="form-group">
-                  <label>Platform</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-layer-group"></i>
-                    <select name="platform" required>
-                      <option value="instagram">Instagram Reels</option>
-                      <option value="youtube">YouTube Shorts</option>
-                      <option value="tiktok">TikTok</option>
-                      <option value="twitter">Twitter / X</option>
-                    </select>
-                  </div>
-                </div>
-                <button type="submit" className="btn-primary">Generate Package</button>
+                <button type="submit" className="btn-primary">Generate Strategy</button>
               </form>
             </div>
           </div>
 
-          <div className="section-header">
-            <div className="section-title">
+          <div className="section-header" style={{ marginBottom: "24px" }}>
+            <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2>Registered Accounts</h2>
-              <button onClick={() => setShowAccounts(!showAccounts)} className="btn-toggle">
-                <i className={`fa-solid ${showAccounts ? "fa-eye-slash" : "fa-eye"}`}></i> 
-                {showAccounts ? "Hide" : "Show"}
-              </button>
-            </div>
-
-            <div className="filter-bar">
-              {["all", "instagram", "tiktok", "twitter", "youtube"].map((p) => (
-                <button 
-                  key={p}
-                  onClick={() => setCurrentPlatform(p)}
-                  className={`filter-btn ${currentPlatform === p ? "active" : ""}`}
-                >
-                  {p === "all" ? "All" : <i className={`fa-brands fa-${p === "twitter" ? "x-twitter" : p}`}></i>}
-                </button>
-              ))}
+              <div style={{ display: "flex", gap: "12px" }}>
+                {["all", "instagram", "tiktok", "twitter", "youtube"].map((p) => (
+                  <button 
+                    key={p}
+                    onClick={() => setCurrentPlatform(p)}
+                    style={{ 
+                      padding: "6px 12px", borderRadius: "12px", border: "1px solid var(--border)", 
+                      background: currentPlatform === p ? "var(--accent-neon)" : "transparent",
+                      color: currentPlatform === p ? "#020617" : "white",
+                      cursor: "pointer", fontSize: "0.8rem", textTransform: "capitalize"
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {showAccounts && (
-            <div className="accounts-wrapper">
-              <div className="accounts-grid">
-                {accounts.length > 0 ? (
-                  accounts
-                    .filter(a => currentPlatform === "all" || a.platform.toLowerCase() === currentPlatform)
-                    .map((acc) => (
-                      <div key={acc.id} className="account-card">
-                        <div className={`platform-badge bg-${acc.platform.toLowerCase()}`}>
-                          <i className={`fa-brands fa-${acc.platform.toLowerCase() === "twitter" ? "x-twitter" : acc.platform.toLowerCase()}`}></i>
-                        </div>
-                        <div className="acc-username">@{acc.account_name}</div>
-                        <div className="acc-platform">{acc.platform}</div>
-                        <button className="btn-delete-icon" title="Remove Account">
-                          <i className="fa-solid fa-trash"></i>
-                        </button>
-                      </div>
-                    ))
-                ) : (
-                  <div className="empty-state">
-                    <i className="fa-solid fa-ghost"></i>
-                    <p>No accounts found matching this filter.</p>
+          <div className="accounts-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "20px" }}>
+            {accounts.length > 0 ? (
+              accounts.map((acc) => (
+                <div key={acc.id} className="card" style={{ padding: "20px", textAlign: "center" }}>
+                  <div style={{ fontSize: "1.5rem", marginBottom: "10px", color: "var(--accent-neon)" }}>
+                    <i className={`fa-brands fa-${acc.platform.toLowerCase() === "twitter" ? "x-twitter" : acc.platform.toLowerCase()}`}></i>
                   </div>
-                )}
+                  <div style={{ fontWeight: 700 }}>@{acc.account_name}</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--text-soft)", textTransform: "uppercase" }}>{acc.platform}</div>
+                </div>
+              ))
+            ) : (
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px", color: "var(--text-soft)" }}>
+                No accounts found. Link one above!
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       ) : (
         <GuestView />
@@ -252,84 +232,38 @@ export default function Dashboard() {
         data={llmData}
         progress={llmProgress}
       />
-
-      <footer style={{ padding: "60px 0", borderTop: "1px solid var(--border)", textAlign: "center", color: "var(--text-soft)", fontSize: "0.9rem" }}>
-        <p>&copy; 2026 AutoSocial Platform. All rights reserved.</p>
-      </footer>
     </main>
   );
 }
 
 function GuestView() {
   return (
-    <div className="container" style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 24px" }}>
-      {/* Hero Section */}
-      <section className="hero" style={{ padding: "180px 0 100px", display: "flex", alignItems: "center", gap: "60px" }}>
-        <div className="hero-text" style={{ flex: 1 }}>
-          <div className="hero-badge" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 600, color: "var(--neon)", marginBottom: "24px" }}>
-            <i className="fa-solid fa-bolt"></i> V3.0 Now Live
-          </div>
-          <h1 style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", marginBottom: "24px", background: "linear-gradient(to right, #fff, #94a3b8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Earn by Creating.<br />Grow with AI.
-          </h1>
-          <p style={{ fontSize: "1.125rem", color: "var(--text-soft)", marginBottom: "40px", maxWidth: "500px" }}>
-            Join global campaigns, get paid for your content, and grow faster using our AI-powered viral prediction tools.
-          </p>
-          <div className="hero-btns" style={{ display: "flex", gap: "16px" }}>
-            <a href="/signup" className="btn-header" style={{ padding: "14px 32px", background: "linear-gradient(135deg, var(--primary), #818cf8)", color: "white", border: "none", borderRadius: "12px", fontWeight: 700 }}>Get Started Free</a>
-            <a href="/promotions" className="btn-header" style={{ padding: "14px 32px", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-main)", borderRadius: "12px", fontWeight: 600 }}>Explore Campaigns</a>
-          </div>
-        </div>
-        <div className="hero-visual" style={{ flex: 1.2, position: "relative" }}>
-          <div className="mockup-container" style={{ background: "linear-gradient(135deg, #1e293b, #0f172a)", borderRadius: "24px", padding: "8px", border: "1px solid var(--border)", boxShadow: "0 40px 100px rgba(0,0,0,0.6)", transform: "perspective(1000px) rotateY(-10deg) rotateX(5deg)" }}>
-            <img src="/static/autosocial_hero_mockup.png" style={{ width: "100%", height: "auto", borderRadius: "18px", display: "block" }} alt="Dashboard Mockup" />
-          </div>
+    <div className="container">
+      <section className="hero" style={{ padding: "120px 0 80px", textAlign: "center" }}>
+        <h1 style={{ fontSize: "clamp(2.5rem, 6vw, 4.5rem)", fontWeight: 900, letterSpacing: "-0.05em", marginBottom: "24px" }}>
+          The Future of <span style={{ color: "var(--accent-neon)" }}>Social Automation</span>
+        </h1>
+        <p style={{ fontSize: "1.25rem", color: "var(--text-soft)", maxWidth: "700px", margin: "0 auto 40px", lineHeight: 1.6 }}>
+          Join elite creators and brands. Automate your growth, join high-paying campaigns, and leverage AI to go viral.
+        </p>
+        <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
+          <Link href="/signup" className="btn-primary" style={{ padding: "16px 40px", fontSize: "1rem" }}>Start Building</Link>
+          <Link href="/promotions" className="btn-header" style={{ padding: "16px 40px", fontSize: "1rem" }}>Browse Campaigns</Link>
         </div>
       </section>
 
-      {/* Two Paths */}
-      <div id="paths" style={{ padding: "100px 0" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
-          <div className="card" style={{ padding: "60px", borderTop: "4px solid var(--neon)" }}>
-            <h2 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "16px" }}>For Creators</h2>
-            <ul style={{ listStyle: "none", marginBottom: "40px" }}>
-              <li style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", color: "var(--text-soft)" }}><i className="fa-solid fa-check" style={{ color: "var(--neon)" }}></i> Browse & join campaigns</li>
-              <li style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", color: "var(--text-soft)" }}><i className="fa-solid fa-check" style={{ color: "var(--neon)" }}></i> Predict virality with AI</li>
-              <li style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", color: "var(--text-soft)" }}><i className="fa-solid fa-check" style={{ color: "var(--neon)" }}></i> Secure wallet for payouts</li>
-            </ul>
-            <a href="/signup?role=creator" className="btn-header" style={{ background: "var(--neon)", color: "#020617", width: "100%", textAlign: "center", fontWeight: 800, borderRadius: "12px", textDecoration: "none", padding: "16px" }}>Start as Creator</a>
-          </div>
-          <div className="card" style={{ padding: "60px", borderTop: "4px solid var(--primary)" }}>
-            <h2 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "16px" }}>For Brands</h2>
-            <ul style={{ listStyle: "none", marginBottom: "40px" }}>
-              <li style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", color: "var(--text-soft)" }}><i className="fa-solid fa-check" style={{ color: "var(--primary)" }}></i> Post custom campaigns</li>
-              <li style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", color: "var(--text-soft)" }}><i className="fa-solid fa-check" style={{ color: "var(--primary)" }}></i> Hire top creators instantly</li>
-              <li style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px", color: "var(--text-soft)" }}><i className="fa-solid fa-check" style={{ color: "var(--primary)" }}></i> Real-time ROI analytics</li>
-            </ul>
-            <a href="/signup?role=brand" className="btn-header" style={{ background: "var(--primary)", color: "white", width: "100%", textAlign: "center", fontWeight: 800, borderRadius: "12px", textDecoration: "none", padding: "16px" }}>Start as Brand</a>
-          </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px", marginBottom: "80px" }}>
+        <div className="card" style={{ padding: "40px", borderTop: "4px solid var(--accent-neon)" }}>
+          <h2 style={{ fontSize: "1.8rem", marginBottom: "16px" }}>For Creators</h2>
+          <p style={{ color: "var(--text-soft)", marginBottom: "24px" }}>Get paid for your reach. Join campaigns from top brands and get instant payouts.</p>
+          <Link href="/signup?role=creator" style={{ color: "var(--accent-neon)", textDecoration: "none", fontWeight: 700 }}>Get Started &rarr;</Link>
+        </div>
+        <div className="card" style={{ padding: "40px", borderTop: "4px solid var(--primary)" }}>
+          <h2 style={{ fontSize: "1.8rem", marginBottom: "16px" }}>For Brands</h2>
+          <p style={{ color: "var(--text-soft)", marginBottom: "24px" }}>Scale your influence. Launch campaigns and hire verified creators in seconds.</p>
+          <Link href="/signup?role=brand" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 700 }}>Get Started &rarr;</Link>
         </div>
       </div>
-
-      {/* Chat Feature */}
-      <section style={{ padding: "100px 0", display: "flex", alignItems: "center", gap: "80px" }}>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div className="card" style={{ padding: "16px 20px", borderRadius: "20px", maxWidth: "80%" }}>
-            <strong>@Nike_Brand</strong>
-            <p>Hey! Loved your last reel. Would you like to join our upcoming marathon campaign?</p>
-          </div>
-          <div className="card" style={{ padding: "16px 20px", marginLeft: "auto", background: "var(--neon-glow)", borderColor: "var(--neon)", maxWidth: "80%", borderRadius: "20px" }}>
-            <strong>@Creator_Star</strong>
-            <p>I'm in! Let's discuss the hooks. Should I use the high-energy AI suggestion?</p>
-          </div>
-        </div>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: "2.25rem", fontWeight: 800, marginBottom: "16px" }}>Collaborate in Real-Time</h2>
-          <p style={{ color: "var(--text-soft)", fontSize: "1.1rem", marginBottom: "24px" }}>
-            No more messy email threads. Discuss content ideas, get faster approvals, and build lasting relationships through our integrated chat system.
-          </p>
-        </div>
-      </section>
     </div>
   );
 }

@@ -1,29 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
-
-  useEffect(() => {
-    const error = searchParams.get("error");
-    const success = searchParams.get("success");
-    if (error) {
-      setMessage({ text: error, isError: true });
-    } else if (success) {
-      setMessage({ text: success, isError: false });
-    }
-  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login attempt:", { email, password });
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const data = await apiFetch("/api/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (data.success) {
+        await login(data);
+        router.push("/");
+      }
+    } catch (err: any) {
+      setMessage({ text: err.message || "Invalid credentials", isError: true });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,13 +70,6 @@ export default function LoginPage() {
           position: relative;
           overflow: hidden;
         }
-        .auth-card::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(420px circle at top left, rgba(255, 255, 255, .1), transparent 50%);
-          pointer-events: none;
-        }
         .logo {
           font-size: 1.8rem;
           font-weight: 700;
@@ -95,17 +98,6 @@ export default function LoginPage() {
           margin-bottom: 8px;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-        }
-        .input-wrapper {
-          position: relative;
-        }
-        .input-wrapper i {
-          position: absolute;
-          left: 15px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #7c8796;
-          font-size: 1rem;
         }
         input {
           width: 100%;
@@ -136,10 +128,7 @@ export default function LoginPage() {
           margin-top: 10px;
           box-shadow: 0 20px 45px rgba(0, 0, 0, .7);
         }
-        .btn-submit:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 25px 60px rgba(0, 0, 0, .9);
-        }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
         .auth-footer {
           margin-top: 25px;
           font-size: 0.9rem;
@@ -149,15 +138,6 @@ export default function LoginPage() {
           color: var(--accent-neon);
           text-decoration: none;
           font-weight: 600;
-        }
-        .forgot-link {
-          display: block;
-          text-align: right;
-          font-size: 0.8rem;
-          color: var(--text-soft);
-          margin-top: -15px;
-          margin-bottom: 20px;
-          text-decoration: none;
         }
         .alert {
           padding: 12px;
@@ -171,7 +151,6 @@ export default function LoginPage() {
           border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .alert-error { background: rgba(239, 68, 68, 0.1); color: #fecaca; border-color: rgba(239, 68, 68, 0.4); }
-        .alert-success { background: rgba(16, 185, 129, 0.1); color: #bbf7d0; border-color: rgba(16, 185, 129, 0.4); }
       `}</style>
 
       <div className="auth-container">
@@ -191,8 +170,8 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="label">Email Address</label>
-              <div className="input-wrapper">
-                <i className="fa-regular fa-envelope"></i>
+              <div style={{ position: "relative" }}>
+                <i className="fa-regular fa-envelope" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#7c8796" }}></i>
                 <input
                   type="email"
                   placeholder="name@example.com"
@@ -205,8 +184,8 @@ export default function LoginPage() {
 
             <div className="form-group">
               <label className="label">Password</label>
-              <div className="input-wrapper">
-                <i className="fa-solid fa-lock"></i>
+              <div style={{ position: "relative" }}>
+                <i className="fa-solid fa-lock" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#7c8796" }}></i>
                 <input
                   type="password"
                   placeholder="••••••••"
@@ -217,12 +196,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Link href="/forgot-password" title="Forgot Password?" className="forgot-link">
-              Forgot Password?
-            </Link>
-
-            <button type="submit" className="btn-submit">
-              Log In
+            <button type="submit" className="btn-submit" disabled={loading}>
+              {loading ? "Logging in..." : "Log In"}
             </button>
           </form>
 
