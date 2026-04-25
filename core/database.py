@@ -269,12 +269,23 @@ def initialize_database():
                     CREATE TABLE IF NOT EXISTS app_users (
                         id SERIAL PRIMARY KEY,
                         email VARCHAR(255) UNIQUE NOT NULL,
-                        password_hash TEXT NOT NULL,
+                        password_hash TEXT,
+                        google_id VARCHAR(255) UNIQUE,
                         is_verified BOOLEAN NOT NULL DEFAULT FALSE,
                         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                     )
                 """
                 )
+                
+                # --- Migrations for Google OAuth ---
+                try:
+                    cur.execute("ALTER TABLE app_users ALTER COLUMN password_hash DROP NOT NULL;")
+                except Exception:
+                    pass
+                try:
+                    cur.execute("ALTER TABLE app_users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;")
+                except Exception:
+                    pass
 
                 cur.execute(
                     """
@@ -346,6 +357,8 @@ def initialize_database():
                 cur.execute("ALTER TABLE promotion_joins ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE")
                 cur.execute("ALTER TABLE promotion_joins ADD COLUMN IF NOT EXISTS is_removed BOOLEAN DEFAULT FALSE")
                 cur.execute("ALTER TABLE promotion_joins ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE")
+                cur.execute("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS join_policy VARCHAR(50) DEFAULT 'automatic'")
+                cur.execute("ALTER TABLE promotion_joins ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'approved'")
 
                 # --- Migrate blacklisted_videos to support per-promotion scope ---
                 try:
@@ -586,10 +599,10 @@ def create_app_user(email: str, password: str, verification_code: str = None):
 
 
 def get_app_user_by_email(email: str):
-    """Fetches a user record by email."""
+    """Fetches a user record by email (case-insensitive)."""
     with get_db_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM app_users WHERE email = %s", (email,))
+            cur.execute("SELECT * FROM app_users WHERE LOWER(email) = LOWER(%s)", (email,))
             return cur.fetchone()
 
 

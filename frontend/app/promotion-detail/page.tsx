@@ -880,6 +880,52 @@ function PromotionDetailContent() {
                   <>
                     <h3><i className="fa-solid fa-circle-check" style={{ color: "#6ee7b7" }}></i> {is_owner ? "You are the Owner" : "You're In!"}</h3>
                     <p>{is_owner ? "Manage your campaign members and track submissions from the sidebar." : "You've successfully joined this promotion. Head over to Submit to upload your video."}</p>
+                    
+                    {is_owner && join_requests && join_requests.length > 0 && (
+                      <div 
+                        onClick={() => setActivePanel('join-requests')}
+                        style={{ 
+                          background: 'rgba(108,242,213,0.1)', 
+                          border: '1px solid var(--neon-border)', 
+                          borderRadius: '16px', 
+                          padding: '16px', 
+                          marginBottom: '20px', 
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '16px',
+                          transition: 'transform 0.2s, background 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.background = 'rgba(108,242,213,0.15)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = 'rgba(108,242,213,0.1)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        <div style={{ 
+                          width: '40px', 
+                          height: '40px', 
+                          borderRadius: '12px', 
+                          background: 'var(--neon)', 
+                          color: '#000', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          fontSize: '1.2rem'
+                        }}>
+                          <i className="fa-solid fa-user-clock"></i>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 700, color: 'var(--neon)', fontSize: '0.95rem' }}>{join_requests.length} Pending Join Requests</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>New users are waiting to join your campaign. Review them now.</div>
+                        </div>
+                        <i className="fa-solid fa-chevron-right" style={{ color: 'var(--text-muted)' }}></i>
+                      </div>
+                    )}
+
                     <div className="btn-joined"><i className="fa-solid fa-check"></i> {is_owner ? "Owner" : "Joined"}</div>
                     {!is_owner && <button className="btn-ghost" onClick={() => setActivePanel('submit')}><i className="fa-solid fa-upload"></i> Submit Video</button>}
                   </>
@@ -1304,8 +1350,31 @@ function PromotionDetailContent() {
                         <div className="chat-ticket-subject">{chatTicket.subject}</div>
                       </div>
                     </div>
-                    <div className="chat-header-actions">
-                      <button type="button" className="btn-close-ticket" onClick={closeTicket}><i className="fa-solid fa-trash-can"></i> Delete</button>
+                    <div className="chat-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      {chatTicket.subject.startsWith("Join Request:") && (
+                        <>
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button 
+                              onClick={() => handleModerateJoin(chatTicket.user_id, 'reject')} 
+                              className="btn-ghost" 
+                              style={{ padding: '7px 16px', fontSize: '0.78rem', color: '#f87171', borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)' }}
+                            >
+                              <i className="fa-solid fa-user-xmark" style={{ fontSize: '0.85rem' }}></i> Reject
+                            </button>
+                            <button 
+                              onClick={() => handleModerateJoin(chatTicket.user_id, 'approve')} 
+                              className="btn-primary" 
+                              style={{ padding: '7px 16px', fontSize: '0.78rem', boxShadow: 'none' }}
+                            >
+                              <i className="fa-solid fa-user-check" style={{ fontSize: '0.85rem' }}></i> Approve
+                            </button>
+                          </div>
+                          <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)', alignSelf: 'center' }}></div>
+                        </>
+                      )}
+                      <button type="button" className="btn-close-ticket" onClick={closeTicket} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px' }}>
+                        <i className="fa-solid fa-trash-can"></i> Delete
+                      </button>
                     </div>
                   </div>
 
@@ -1393,11 +1462,24 @@ function PromotionDetailContent() {
                           <button 
                             onClick={async () => {
                               try {
-                                const response = await apiFetch(`/api/promotions/${promotionId}/requests/${req.user_id}/chat`, { method: "POST" });
-                                if (!response.ok) throw new Error(response.error || "Failed to initialize chat");
-                                await fetchData();
+                                const res = await apiFetch(`/api/promotions/${promotionId}/init-chat/${req.user_id}`, { method: "POST" });
+                                // Refresh data to get the new ticket in the list
+                                const newData = await apiFetch(`/api/promotions/${promotionId}/detail`);
+                                setData(newData);
+                                
+                                if (res.ticket_id && newData.manage_tickets) {
+                                  const newTicket = newData.manage_tickets.find((t: any) => t.id === res.ticket_id);
+                                  if (newTicket) {
+                                    setChatTicket(newTicket);
+                                    setActivePanel('support');
+                                    openChat(newTicket);
+                                    showFlash("Chat initialized with candidate.");
+                                    return;
+                                  }
+                                }
+                                
                                 setActivePanel('manage-tickets');
-                                showFlash("Chat initialized with candidate.");
+                                showFlash("Chat initialized. View it in Manage Tickets.");
                               } catch (err: any) {
                                 showFlash(err.message || "An unexpected error occurred", true);
                               }

@@ -10,7 +10,7 @@ try:
     from core.twitter_bio import fetch_twitter_bio
     from core.tiktok_bio import fetch_tiktok_bio
 except ImportError as e:
-    print(f"⚠️ Warning: Could not import one or more scrapers. {e}")
+    print(f"Warning: Could not import one or more scrapers. {e}")
 
 logger = logging.getLogger("WebApp")
 
@@ -47,9 +47,9 @@ async def check_profile_bio(platform, username, code):
             return False, f"Could not fetch bio for @{username}. Profile might be private or unreachable."
         
         if code in bio_text:
-            return True, "✅ Code found! Verification successful."
+            return True, "Code found! Verification successful."
         else:
-            return False, f"❌ Code '{code}' not found. Found bio: '{bio_text[:50]}...'"
+            return False, f"Code '{code}' not found. Found bio: '{bio_text[:50]}...'"
 
     except Exception as e:
         logger.error(f"Verification Error on {platform}: {e}")

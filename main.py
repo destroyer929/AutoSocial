@@ -14,6 +14,8 @@ import os
 from uuid import uuid4
 import urllib.parse
 from typing import Optional, List, Dict
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 from fastapi import (
     FastAPI,
@@ -85,7 +87,7 @@ def send_real_email(recipient_email, subject, body):
 async def lifespan(app: FastAPI):
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-        logging.info("✅ Windows Event Loop Policy set to Proactor")
+        logging.info("Windows Event Loop Policy set to Proactor")
 
     # Initialize DB Tables on Startup
     initialize_database()
@@ -101,7 +103,7 @@ try:
     from core.twitter import save_twitter_video
     from core.youtube import save_youtube_video
 except ImportError as e:
-    print(f"⚠️ CRITICAL IMPORT ERROR: {e}")
+    print(f"CRITICAL IMPORT ERROR: {e}")
 
 
 # --- APP CONFIGURATION ---
@@ -115,6 +117,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    path = request.url.path
+    logger.info(f"Incoming request: {request.method} {path}")
+    response = await call_next(request)
+    logger.info(f"Response status: {response.status_code} for {path}")
+    return response
 
 @app.middleware("http")
 async def update_last_active(request: Request, call_next):
@@ -137,12 +147,8 @@ app.add_middleware(SessionMiddleware, secret_key="super-secret-random-key", max_
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("WebApp")
 
-# Mount Static & Templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
 # ==========================================
-#        WEBSOCKET MANAGER (ADD THIS HERE)
+#        WEBSOCKET MANAGER
 # ==========================================
 class ConnectionManager:
     def __init__(self):
@@ -166,7 +172,6 @@ class ConnectionManager:
                 await connection.send_json(message)
 
 manager = ConnectionManager()
-# ==========================================
 
 
 # ==========================================
@@ -209,6 +214,16 @@ def get_registered_accounts(web_user_id: int, platform_filter=None):
         logger.error(f"Error fetching accounts: {e}")
     return accounts
 
+def make_json_serializable(obj):
+    """Recursively convert datetime objects to ISO strings in dicts/lists."""
+    if isinstance(obj, dict):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_json_serializable(v) for v in obj]
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    return obj
+
 # ==========================================
 #           JSON API ENDPOINTS
 # ==========================================
@@ -244,40 +259,111 @@ async def api_signup(request: Request, data: dict):
     send_real_email(email, "Verify Your AutoSocial Account", f"Your verification code is: {code}")
     return {"success": True, "message": "Check your email for the verification code."}
 
+GOOGLE_CLIENT_ID = "930691125959-4lap9etbk2u6b1oelnhckgnciriboqa3.apps.googleusercontent.com"
+
+@app.post("/api/auth/google")
+async def api_auth_google(request: Request, data: dict):
+    credential = data.get("credential")
+    if not credential:
+        return JSONResponse({"error": "Missing credential"}, status_code=400)
+    
+    try:
+        # Verify the ID Token
+        idinfo = id_token.verify_oauth2_token(credential, google_requests.Request(), GOOGLE_CLIENT_ID)
+        
+        # ID token is valid. Get user's Google ID and email
+        google_id = idinfo['sub']
+        email = idinfo['email']
+        
+        user = get_app_user_by_email(email)
+        
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                if user:
+                    # User exists, link Google ID if not already linked
+                    if not user["google_id"]:
+                        cur.execute("UPDATE app_users SET google_id = %s, is_verified = TRUE WHERE id = %s", (google_id, user["id"]))
+                        conn.commit()
+                    user_id = user["id"]
+                else:
+                    # Create new user
+                    cur.execute(
+                        "INSERT INTO app_users (email, google_id, is_verified) VALUES (%s, %s, TRUE) RETURNING id",
+                        (email, google_id)
+                    )
+                    user_id = cur.fetchone()[0]
+                    conn.commit()
+        
+        # Start session
+        request.session["user_id"] = user_id
+        request.session["email"] = email
+        
+        return {"success": True, "user": {"email": email}}
+        
+    except ValueError as e:
+        # Invalid token
+        logger.error(f"Invalid Google token: {e}")
+        return JSONResponse({"error": "Invalid token"}, status_code=401)
+    except Exception as e:
+        logger.error(f"Google auth error: {e}")
+        return JSONResponse({"error": "Internal server error"}, status_code=500)
+
+
 @app.get("/api/accounts")
 async def api_get_accounts(request: Request, platform: str = "all"):
+    print(f"HIT: /api/accounts for user {request.session.get('user_id')}")
     user_id = get_current_user(request)
     if not user_id:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     accounts = get_registered_accounts(user_id, platform)
     # Convert DictCursor results to regular dicts for JSON
-    return [{"id": a["id"], "platform": a["platform"], "account_name": a["account_name"]} for a in accounts]
+    data = [{"id": a["id"], "platform": a["platform"], "account_name": a["account_name"]} for a in accounts]
+    return make_json_serializable({"accounts": data})
 
 @app.get("/api/promotions")
 async def api_get_promotions(request: Request, q: str = ""):
     promos = list_promotions(q)
-    return {"promotions": [dict(p) for p in promos]}
+    serialized = []
+    for p in promos:
+        p_dict = dict(p)
+        if p_dict.get('created_at'): p_dict['created_at'] = p_dict['created_at'].isoformat()
+        serialized.append(p_dict)
+    return {"promotions": serialized}
 
-@app.get("/api/promotions/{promo_id}")
-async def api_get_promotion_detail(promo_id: int, request: Request):
+@app.post("/api/promotions/join")
+async def api_join_promotion(request: Request, data: dict):
     user_id = get_current_user(request)
-    with get_db_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM promotions WHERE id = %s", (promo_id,))
-            promo = cur.fetchone()
-            if not promo:
-                raise HTTPException(status_code=404, detail="Promotion not found")
-            
-            is_joined = False
-            if user_id:
-                cur.execute("SELECT 1 FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promo_id, user_id))
-                is_joined = cur.fetchone() is not None
-            
-            return {
-                "promotion": dict(promo),
-                "is_joined": is_joined,
-                "user_email": request.session.get("email") if user_id else None
-            }
+    if not user_id:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    promotion_id = data.get("promotion_id")
+    if not promotion_id:
+        return JSONResponse({"error": "Missing promotion_id"}, status_code=400)
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # Check join policy
+                cur.execute("SELECT join_policy FROM promotions WHERE id = %s", (promotion_id,))
+                row = cur.fetchone()
+                if not row:
+                    return JSONResponse({"error": "Promotion not found"}, status_code=404)
+                
+                policy = row[0]
+                status_val = 'approved' if policy == 'automatic' else 'pending'
+                
+                cur.execute(
+                    "INSERT INTO promotion_joins (promotion_id, user_id, status) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+                    (promotion_id, user_id, status_val)
+                )
+                conn.commit()
+                
+                if status_val == 'pending':
+                    return {"status": "pending", "message": "Join request sent. Awaiting approval."}
+                return {"status": "success", "message": "Successfully joined promotion."}
+    except Exception as e:
+        logger.error(f"Error joining promotion: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/api/stats")
 async def api_get_stats(request: Request, platform: str = "all", account: str = "all"):
@@ -285,13 +371,68 @@ async def api_get_stats(request: Request, platform: str = "all", account: str = 
     if not user_id:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     
-    # Simple mock/logic placeholder for stats
-    return {
-        "stats": [],
-        "total_views": 0,
-        "total_likes": 0,
-        "all_accounts": []
-    }
+    processed_stats = []
+    all_accounts = []
+    total_views = 0
+    total_likes = 0
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                # 1. Get accounts list for filters
+                cur.execute("SELECT DISTINCT account_name FROM registered_accounts WHERE web_user_id = %s", (user_id,))
+                all_accounts = [row[0] for row in cur.fetchall()]
+
+                # 2. Query stats
+                sql = """
+                    SELECT v.*, s.account_name 
+                    FROM video_stats v
+                    LEFT JOIN submitted_shorts s ON v.short_link = s.short_link
+                    WHERE v.user_id = %s
+                """
+                params = [user_id]
+                if platform != "all":
+                    sql += " AND v.platform ILIKE %s"
+                    params.append(platform)
+                if account != "all":
+                    sql += " AND s.account_name = %s"
+                    params.append(account)
+                
+                sql += " ORDER BY v.last_updated DESC LIMIT 100"
+                cur.execute(sql, tuple(params))
+                rows = cur.fetchall()
+
+                for row in rows:
+                    processed_stats.append({
+                        "platform": row["platform"],
+                        "url": row["short_link"],
+                        "views": row["views"],
+                        "likes": row["likes"],
+                        "comments": row["comments"],
+                        "timestamp": row["last_updated"].isoformat() if row["last_updated"] else None,
+                        "account_name": row["account_name"] or "—"
+                    })
+                    total_views += (row["views"] or 0)
+                    total_likes += (row["likes"] or 0)
+
+    except Exception as e:
+        logger.error(f"API Stats Error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    return make_json_serializable({
+        "stats": processed_stats,
+        "total_views": total_views,
+        "total_likes": total_likes,
+        "all_accounts": all_accounts
+    })
+
+# ==========================================
+#           STATIC ASSETS
+# ==========================================
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+templates = Jinja2Templates(directory="templates")
 
 
 # ==========================================
@@ -299,11 +440,11 @@ async def api_get_stats(request: Request, platform: str = "all", account: str = 
 # ==========================================
 
 # --- LOGIN PAGE ---
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse(
-        "auth/login.html", {"request": request, "message": None}
-    )
+# @app.get("/login", response_class=HTMLResponse)
+# async def login_page(request: Request):
+#     return templates.TemplateResponse(
+#         "auth/login.html", {"request": request, "message": None}
+#     )
 
 
 # --- LOGIN SUBMIT ---
@@ -352,11 +493,11 @@ async def login_submit(
 
 
 # --- SIGNUP PAGE ---
-@app.get("/signup", response_class=HTMLResponse)
-async def signup_page(request: Request):
-    return templates.TemplateResponse(
-        "auth/signup.html", {"request": request, "message": None}
-    )
+# @app.get("/signup", response_class=HTMLResponse)
+# async def signup_page(request: Request):
+#     return templates.TemplateResponse(
+#         "auth/signup.html", {"request": request, "message": None}
+#     )
 
 
 # --- SIGNUP SUBMIT ---
@@ -512,26 +653,26 @@ async def logout(request: Request):
 # ==========================================
 
 # --- 1. HOMEPAGE ---
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request, platform: str = "all"):
-    web_user_id = get_current_user(request)
-    if not web_user_id:
-        return templates.TemplateResponse("index.html", {"request": request})
-
-    accounts = get_registered_accounts(web_user_id, platform)
-
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "user_email": request.session.get("email"),
-            "accounts": accounts,
-            "current_platform": platform,
-            "message": request.query_params.get("success"),
-            "new_video_stats": None,
-            "verification_needed": False,
-        },
-    )
+# @app.get("/", response_class=HTMLResponse)
+# async def read_root(request: Request, platform: str = "all"):
+#     web_user_id = get_current_user(request)
+#     if not web_user_id:
+#         return templates.TemplateResponse("index.html", {"request": request})
+# 
+#     accounts = get_registered_accounts(web_user_id, platform)
+# 
+#     return templates.TemplateResponse(
+#         "index.html",
+#         {
+#             "request": request,
+#             "user_email": request.session.get("email"),
+#             "accounts": accounts,
+#             "current_platform": platform,
+#             "message": request.query_params.get("success"),
+#             "new_video_stats": None,
+#             "verification_needed": False,
+#         },
+#     )
 
 
 # --- 1b. LUXURY PREVIEW ---
@@ -1150,9 +1291,64 @@ async def create_campaign_route(
         status_code=status.HTTP_303_SEE_OTHER,
     )
 
+@app.post("/api/campaigns/create")
+async def api_create_campaign(
+    request: Request,
+    title: str = Form(...),
+    description: str = Form(None),
+    platform_mode: str = Form("all"),
+    platforms: Optional[str] = Form(None), # comma-separated
+    campaign_type: str = Form(...),
+    budget: float = Form(0),
+    join_policy: str = Form("automatic"),
+    image: Optional[UploadFile] = File(None),
+):
+    web_user_id = get_current_user(request)
+    if not web_user_id:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    image_path = None
+    if image and image.filename:
+        upload_dir = "static/uploads/campaigns"
+        os.makedirs(upload_dir, exist_ok=True)
+        ext = os.path.splitext(image.filename)[1]
+        fname = f"promo_{web_user_id}_{uuid4().hex}{ext}"
+        path = os.path.join(upload_dir, fname)
+        with open(path, "wb") as f:
+            f.write(await image.read())
+        image_path = f"/{path}"
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # 1) Create campaign
+                cur.execute(
+                    "INSERT INTO campaigns (user_id, title, description, image_path, platforms, campaign_type, budget) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (web_user_id, title, description, image_path, platforms or "all", campaign_type, budget)
+                )
+                campaign_id = cur.fetchone()[0]
+
+                # 2) Create promotion
+                cur.execute(
+                    "INSERT INTO promotions (campaign_id, created_by, name, details, join_policy, is_active) VALUES (%s, %s, %s, %s, %s, TRUE) RETURNING id",
+                    (campaign_id, web_user_id, title, description, join_policy)
+                )
+                promotion_id = cur.fetchone()[0]
+                
+                # 3) Owner joins automatically as admin
+                cur.execute(
+                    "INSERT INTO promotion_joins (promotion_id, user_id, is_admin, status) VALUES (%s, %s, TRUE, 'approved')",
+                    (promotion_id, web_user_id)
+                )
+                conn.commit()
+                return {"status": "success", "promotion_id": promotion_id}
+    except Exception as e:
+        logger.error(f"Error creating campaign: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
-# --- MY PROMOTIONS PAGE ---
+
+# --- MY PROMOTIONS PAGE (LEGACY) ---
 @app.get("/my-promotions", response_class=HTMLResponse)
 async def my_promotions_page(request: Request):
     user_id = get_current_user(request)
@@ -1202,6 +1398,55 @@ async def my_promotions_page(request: Request):
         },
     )
 
+# --- MY PROMOTIONS API (JSON) ---
+@app.get("/api/my-promotions")
+async def api_my_promotions(request: Request):
+    print(f"HIT: /api/my-promotions for user {request.session.get('user_id')}")
+    user_id = get_current_user(request)
+    if not user_id:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    created_promos = []
+    joined_promos = []
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                # 1. Campaigns created by the user
+                cur.execute("""
+                    SELECT p.*, c.title AS campaign_title, c.image_path AS image_path,
+                           c.platforms AS platforms, c.campaign_type AS campaign_type, c.budget AS budget
+                    FROM promotions p
+                    JOIN campaigns c ON p.campaign_id = c.id
+                    WHERE p.created_by = %s
+                    ORDER BY p.id DESC
+                """, (user_id,))
+                for row in cur.fetchall():
+                    p_dict = dict(row)
+                    # Convert datetimes to strings
+                    if p_dict.get('created_at'): p_dict['created_at'] = p_dict['created_at'].isoformat()
+                    created_promos.append(p_dict)
+
+                # 2. Campaigns joined by the user (but not created by them)
+                cur.execute("""
+                    SELECT p.*, c.title AS campaign_title, c.image_path AS image_path,
+                           c.platforms AS platforms, c.campaign_type AS campaign_type, c.budget AS budget
+                    FROM promotion_joins pj
+                    JOIN promotions p ON pj.promotion_id = p.id
+                    JOIN campaigns c ON p.campaign_id = c.id
+                    WHERE pj.user_id = %s AND p.created_by != %s
+                    ORDER BY pj.joined_at DESC
+                """, (user_id, user_id))
+                for row in cur.fetchall():
+                    p_dict = dict(row)
+                    if p_dict.get('created_at'): p_dict['created_at'] = p_dict['created_at'].isoformat()
+                    joined_promos.append(p_dict)
+    except Exception as e:
+        logger.error(f"Error fetching api/my-promotions: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    return make_json_serializable({"created_promos": created_promos, "joined_promos": joined_promos})
+
 
 # --- PROMOTIONS PAGE ---
 @app.get("/promotions", response_class=HTMLResponse)
@@ -1228,18 +1473,19 @@ async def promotions_page(request: Request, q: str = None):
 # ADD THESE TWO ROUTES TO main.py
 # =============================================
 
-# --- PROMOTION DETAIL PAGE ---
-@app.get("/promotions/{promotion_id}", response_class=HTMLResponse)
-async def promotion_detail_page(request: Request, promotion_id: int):
+# --- PROMOTION DETAIL API ---
+@app.get("/api/promotions/{promotion_id}/detail")
+async def api_get_promotion_detail_full(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     user_email = request.session.get("email", "")
     if not user_id:
-        return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     promotion = None
     already_joined = False
     join_count = 0
     is_admin = False
+    is_owner = False
     support_tickets = []  # Tickets the user created
     manage_tickets = []   # ALL tickets (only visible if admin)
 
@@ -1258,10 +1504,11 @@ async def promotion_detail_page(request: Request, promotion_id: int):
                 promotion = cur.fetchone()
 
                 if not promotion:
-                    return RedirectResponse("/promotions?error=Promotion+not+found", status_code=status.HTTP_303_SEE_OTHER)
+                    raise HTTPException(status_code=404, detail="Promotion not found")
 
                 # Check if current user is the Admin/Creator of this promotion
-                is_admin = (promotion["created_by"] == user_id)
+                is_admin = (int(promotion["created_by"]) == int(user_id))
+                is_owner = (int(promotion["created_by"]) == int(user_id))
 
                 # 2. Check if current user already joined
                 cur.execute("SELECT 1 FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
@@ -1295,7 +1542,12 @@ async def promotion_detail_page(request: Request, promotion_id: int):
                     if row["id"] == user_id and row["is_admin"]:
                         join_admin = True
                     
-                    if row["last_active"] and (now - row["last_active"]).total_seconds() < 300:
+                    last_active = row["last_active"]
+                    # Ensure last_active is timezone-aware if it exists
+                    if last_active and last_active.tzinfo is None:
+                        last_active = last_active.replace(tzinfo=timezone.utc)
+                    
+                    if last_active and (now - last_active).total_seconds() < 300:
                         online_members.append(member_data)
                     else:
                         offline_members.append(member_data)
@@ -1306,6 +1558,10 @@ async def promotion_detail_page(request: Request, promotion_id: int):
 
                 # X. Fetch Announcements (Exclude dismissed)
                 announcements_data = []
+                join_requests = []
+                user_join_status = None
+                is_removed = False
+                is_banned = False
                 unread_count = 0
                 cur.execute("""
                     SELECT a.*, (SELECT email FROM app_users WHERE id = a.author_id) as author_email,
@@ -1324,54 +1580,72 @@ async def promotion_detail_page(request: Request, promotion_id: int):
                     if not item['is_read'] and item['author_id'] != user_id:
                         unread_count += 1
 
-                # 4. Fetch User's OWN Support Tickets (For standard 'Support' tab)
+                # 4. Fetch User's OWN Support Tickets
                 cur.execute("""
                     SELECT t.*,
                            (SELECT message FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY m.created_at DESC LIMIT 1) as last_message,
-                           (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id AND m.sender != %s AND m.is_read = FALSE) as unread_count
+                           (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id AND m.sender != %s AND m.is_read = FALSE) as unread_msg_count
                     FROM support_tickets t
                     WHERE t.promotion_id = %s AND t.user_id = %s
                     ORDER BY t.created_at DESC
                 """, (user_email, promotion_id, user_id))
                 for row in cur.fetchall():
-                    support_tickets.append({
+                    ticket_data = {
                         "id": row["id"], "subject": row["subject"], "status": row["status"],
                         "created_at": row["created_at"].strftime('%d %b %Y'),
                         "last_message": row["last_message"][:30] + "..." if row["last_message"] and len(row["last_message"]) > 30 else row["last_message"],
-                        "unread_count": row["unread_count"]
-                    })
+                        "unread_count": row["unread_msg_count"]
+                    }
+                    support_tickets.append(ticket_data)
+                    unread_count += row["unread_msg_count"]
 
                 # 5. If Admin, fetch ALL tickets for this promotion
                 if is_admin:
                     cur.execute("""
                         SELECT t.*, u.email as creator_email,
                                (SELECT message FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY m.created_at DESC LIMIT 1) as last_message,
-                               (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id AND m.sender != %s AND m.is_read = FALSE) as unread_count
+                               (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id AND m.sender != %s AND m.is_read = FALSE) as unread_msg_count
                         FROM support_tickets t
                         JOIN app_users u ON t.user_id = u.id
                         WHERE t.promotion_id = %s
-                        ORDER BY t.created_at DESC
+                        ORDER BY (CASE WHEN t.status='open' THEN 0 ELSE 1 END), t.created_at DESC
                     """, (user_email, promotion_id))
                     for row in cur.fetchall():
-                        manage_tickets.append({
+                        ticket_data = {
                             "id": row["id"], "subject": row["subject"], "status": row["status"],
+                            "user_id": row["user_id"],
                             "creator_email": row["creator_email"],
                             "created_at": row["created_at"].strftime('%d %b %Y'),
                             "last_message": row["last_message"][:30] + "..." if row["last_message"] and len(row["last_message"]) > 30 else row["last_message"],
-                            "unread_count": row["unread_count"]
-                        })
+                            "unread_count": row["unread_msg_count"]
+                        }
+                        manage_tickets.append(ticket_data)
+                        unread_count += row["unread_msg_count"]
+
+                    # 7. Fetch PENDING Join Requests
+                    cur.execute("""
+                        SELECT j.*, u.email, u.id as user_id 
+                        FROM promotion_joins j
+                        JOIN app_users u ON j.user_id = u.id
+                        WHERE j.promotion_id = %s AND j.status = 'pending'
+                    """, (promotion_id,))
+                    pending_rows = cur.fetchall()
+                    join_requests = [{"id": r["id"], "user_id": r["user_id"], "email": r["email"]} for r in pending_rows]
+
+                # 8. Get current user's join status
+                cur.execute("SELECT status, is_removed, is_banned FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
+                user_join_record = cur.fetchone()
+                user_join_status = user_join_record[0] if user_join_record else None
+                is_removed = user_join_record[1] if user_join_record else False
+                is_banned = user_join_record[2] if user_join_record else False
 
     except Exception as e:
         logger.error(f"Error loading promotion detail: {e}")
-        return RedirectResponse("/promotions", status_code=status.HTTP_303_SEE_OTHER)
+        raise HTTPException(status_code=500, detail="Error loading promotion detail")
 
-    message = request.query_params.get("msg")
-    is_error = request.query_params.get("err") == "1"
-    
-    new_video_stats = request.session.pop("new_video_stats", None)
-
-    # Fetch registered accounts and currently submitted videos for this campaign
+    # Fetch accounts/analytics
     accounts = get_registered_accounts(user_id)
+    accounts_data = [dict(a) for a in accounts] if accounts else []
     submitted_videos = []
     analytics = None
 
@@ -1504,33 +1778,40 @@ async def promotion_detail_page(request: Request, promotion_id: int):
     except Exception as e:
         logger.error(f"Error fetching promotion submitted videos & analytics: {e}")
 
-    return templates.TemplateResponse(
-        "promotion_detail.html",
-        {
-            "request": request,
-            "promotion": dict(promotion) if promotion else None,
-            "already_joined": already_joined,
-            "join_count": join_count,
+    # Final response assembly
+    res_data = {
+        "promotion": dict(promotion) if promotion else None,
+        "already_joined": already_joined,
+        "user_join_status": user_join_status,
+        "is_removed": is_removed,
+        "is_banned": is_banned,
+        "join_count": join_count,
+        "online_members": online_members,
+        "offline_members": offline_members,
+        "accounts": accounts_data,
+        "analytics": analytics,
+        "admin_analytics": admin_analytics,
+        "submitted_videos": submitted_videos,
+        "announcements": announcements_data,
+        "unread_count": unread_count,
+        "support_tickets": support_tickets, 
+        "manage_tickets": manage_tickets, 
+        "join_requests": join_requests,
+        "is_admin": is_admin,
+        "is_owner": is_owner,
+        "user_email": request.session.get("email"), 
+        "user_id": user_id,
+    }
+    
+    return make_json_serializable(res_data)
 
-            # Additional contexts
-            "online_members": online_members,
-            "offline_members": offline_members,
-            "accounts": accounts,
-            "analytics": analytics,
-            "admin_analytics": admin_analytics,
-            "submitted_videos": submitted_videos,
-            "announcements": announcements_data,
-            "unread_count": unread_count,
-            "support_tickets": support_tickets, 
-            "manage_tickets": manage_tickets, 
-            "is_admin": is_admin,
-            "is_owner": promotion["created_by"] == user_id if promotion else False,
-            "new_video_stats": new_video_stats, 
-            "message": message, "is_error": is_error, "user_email": request.session.get("email"), "user_id": user_id,
-        })
+# --- REDIRECT OLD PROMOTION DETAIL TO SPA ---
+@app.get("/promotions/{promotion_id}", response_class=HTMLResponse)
+async def promotion_detail_page_redirect(request: Request, promotion_id: int):
+    return RedirectResponse(f"/promotion-detail?id={promotion_id}", status_code=status.HTTP_303_SEE_OTHER)
 
 # --- TOGGLE CAMPAIGN STATUS (PAUSE/RESUME) ---
-@app.post("/promotions/{promotion_id}/toggle-status")
+@app.post("/api/promotions/{promotion_id}/toggle-status")
 async def toggle_promotion_status(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     if not user_id:
@@ -1548,15 +1829,14 @@ async def toggle_promotion_status(request: Request, promotion_id: int):
                 cur.execute("UPDATE promotions SET is_active = %s WHERE id = %s", (new_status, promotion_id))
                 conn.commit()
                 status_text = "Resumed" if new_status else "Paused"
+                return RedirectResponse(f"/my-promotions?msg=Campaign+{status_text}+Successfully", status_code=303)
     except Exception as e:
         logger.error(f"Error toggling promotion status: {e}")
         return RedirectResponse("/my-promotions?msg=System+Error&err=1", status_code=303)
 
-    return RedirectResponse(f"/my-promotions?msg=Campaign+{status_text}+Successfully", status_code=303)
-
 
 # --- ANNOUNCEMENTS ---
-@app.post("/promotions/{promotion_id}/announcements")
+@app.post("/api/promotions/{promotion_id}/announcements")
 async def create_announcement(
     request: Request, 
     promotion_id: int,
@@ -1566,7 +1846,7 @@ async def create_announcement(
 ):
     user_id = get_current_user(request)
     if not user_id:
-        return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
         
     try:
         with get_db_connection() as conn:
@@ -1586,7 +1866,7 @@ async def create_announcement(
                             is_admin = True
                 
                 if not is_admin:
-                    return RedirectResponse(f"/promotions/{promotion_id}?msg=Unauthorized&err=1", status_code=303)
+                    return JSONResponse({"error": "Unauthorized action"}, status_code=403)
                 
                 image_url = None
                 if image and image.filename:
@@ -1604,13 +1884,12 @@ async def create_announcement(
                     (promotion_id, user_id, title, message, image_url)
                 )
                 conn.commit()
+                return {"status": "success", "message": "Announcement Posted"}
     except Exception as e:
         logger.error(f"Error creating announcement: {e}")
-        return RedirectResponse(f"/promotions/{promotion_id}?msg=Failed+to+create+announcement&err=1", status_code=303)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
-    return RedirectResponse(f"/promotions/{promotion_id}?msg=Announcement+Posted", status_code=303)
-
-@app.post("/promotions/{promotion_id}/announcements/{announcement_id}/dismiss")
+@app.post("/api/promotions/{promotion_id}/announcements/{announcement_id}/dismiss")
 async def dismiss_announcement(request: Request, promotion_id: int, announcement_id: int):
     user_id = get_current_user(request)
     if not user_id:
@@ -1632,43 +1911,53 @@ async def dismiss_announcement(request: Request, promotion_id: int, announcement
     return JSONResponse({"status": "success"})
 
 
-@app.post("/promotions/{promotion_id}/mark_announcements_read")
+@app.post("/api/promotions/{promotion_id}/mark_announcements_read")
 async def mark_announcements_read(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     if not user_id:
-        return JSONResponse({"status": "unauthorized"}, status_code=401)
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
         
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                # Find all unread announcements for this campaign (excluding own)
-                cur.execute("""
-                    SELECT id FROM announcements 
-                    WHERE promotion_id = %s AND author_id != %s
-                    AND id NOT IN (SELECT announcement_id FROM announcement_reads WHERE user_id = %s)
-                """, (promotion_id, user_id, user_id))
-                unread = cur.fetchall()
+                # Get all announcement IDs for this promotion
+                cur.execute("SELECT id FROM announcements WHERE promotion_id = %s", (promotion_id,))
+                a_ids = [r[0] for r in cur.fetchall()]
                 
-                for row in unread:
-                    cur.execute(
-                        "INSERT INTO announcement_reads (user_id, announcement_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-                        (user_id, row[0])
-                    )
+                for a_id in a_ids:
+                    cur.execute("""
+                        INSERT INTO announcement_reads (user_id, announcement_id, read_at) 
+                        VALUES (%s, %s, NOW())
+                        ON CONFLICT (user_id, announcement_id) DO UPDATE SET read_at = NOW()
+                    """, (user_id, a_id))
                 conn.commit()
+                return {"status": "success", "message": "Announcements marked as read"}
     except Exception as e:
-        logger.error(f"Error marking announcements valid: {e}")
-        return JSONResponse({"status": "error"}, status_code=500)
-
-    return JSONResponse({"status": "success"})
+        logger.error(f"Error marking announcements read: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # --- ADMIN: BLACKLIST A SUBMISSION ---
-@app.post("/promotions/{promotion_id}/submissions/blacklist")
-async def blacklist_submission(request: Request, promotion_id: int, video_url: str = Form(...), platform: str = Form(...)):
+@app.post("/api/promotions/{promotion_id}/submissions/blacklist")
+async def blacklist_submission(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     if not user_id:
-        return RedirectResponse("/login", status_code=303)
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
     try:
+        # Try to get data from JSON first, then Form
+        try:
+            body = await request.json()
+            video_url = body.get("video_url")
+            platform = body.get("platform")
+        except:
+            form = await request.form()
+            video_url = form.get("video_url")
+            platform = form.get("platform")
+
+        if not video_url or not platform:
+            return JSONResponse({"error": "Missing video_url or platform"}, status_code=400)
+
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT created_by FROM promotions WHERE id = %s", (promotion_id,))
@@ -1682,8 +1971,10 @@ async def blacklist_submission(request: Request, promotion_id: int, video_url: s
                         j = cur.fetchone()
                         if j and j[0]:
                             is_owner_or_admin = True
+                
                 if not is_owner_or_admin:
-                    return RedirectResponse(f"/promotions/{promotion_id}?msg=Unauthorized&err=1", status_code=303)
+                    return JSONResponse({"error": "Unauthorized"}, status_code=403)
+                
                 cur.execute(
                     "INSERT INTO blacklisted_videos (platform, video_url, promotion_id) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
                     (platform, video_url, promotion_id)
@@ -1691,17 +1982,31 @@ async def blacklist_submission(request: Request, promotion_id: int, video_url: s
                 conn.commit()
     except Exception as e:
         logger.error(f"Error blacklisting submission: {e}")
-        return RedirectResponse(f"/promotions/{promotion_id}?msg=Failed+to+blacklist&err=1", status_code=303)
-    return RedirectResponse(f"/promotions/{promotion_id}?msg=Submission+Blacklisted", status_code=303)
+        return JSONResponse({"error": str(e)}, status_code=500)
+    
+    return {"status": "success", "message": "Submission Blacklisted"}
 
 
 # --- ADMIN: WHITELIST A SUBMISSION ---
-@app.post("/promotions/{promotion_id}/submissions/whitelist")
-async def whitelist_submission(request: Request, promotion_id: int, video_url: str = Form(...), platform: str = Form(...)):
+@app.post("/api/promotions/{promotion_id}/submissions/whitelist")
+async def whitelist_submission(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     if not user_id:
-        return RedirectResponse("/login", status_code=303)
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
     try:
+        try:
+            body = await request.json()
+            video_url = body.get("video_url")
+            platform = body.get("platform")
+        except:
+            form = await request.form()
+            video_url = form.get("video_url")
+            platform = form.get("platform")
+
+        if not video_url or not platform:
+            return JSONResponse({"error": "Missing video_url or platform"}, status_code=400)
+
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT created_by FROM promotions WHERE id = %s", (promotion_id,))
@@ -1715,8 +2020,10 @@ async def whitelist_submission(request: Request, promotion_id: int, video_url: s
                         j = cur.fetchone()
                         if j and j[0]:
                             is_owner_or_admin = True
+                
                 if not is_owner_or_admin:
-                    return RedirectResponse(f"/promotions/{promotion_id}?msg=Unauthorized&err=1", status_code=303)
+                    return JSONResponse({"error": "Unauthorized"}, status_code=403)
+                
                 cur.execute(
                     "DELETE FROM blacklisted_videos WHERE platform = %s AND video_url = %s AND promotion_id = %s",
                     (platform, video_url, promotion_id)
@@ -1724,17 +2031,31 @@ async def whitelist_submission(request: Request, promotion_id: int, video_url: s
                 conn.commit()
     except Exception as e:
         logger.error(f"Error whitelisting submission: {e}")
-        return RedirectResponse(f"/promotions/{promotion_id}?msg=Failed+to+whitelist&err=1", status_code=303)
-    return RedirectResponse(f"/promotions/{promotion_id}?msg=Submission+Restored", status_code=303)
+        return JSONResponse({"error": str(e)}, status_code=500)
+    
+    return {"status": "success", "message": "Submission Whitelisted"}
 
 
 # --- ADMIN: REMOVE A USER'S SUBMISSION ---
-@app.post("/promotions/{promotion_id}/submissions/remove")
-async def admin_remove_submission(request: Request, promotion_id: int, video_url: str = Form(...), platform: str = Form(...)):
+@app.post("/api/promotions/{promotion_id}/submissions/remove")
+async def admin_remove_submission(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     if not user_id:
-        return RedirectResponse("/login", status_code=303)
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
     try:
+        try:
+            body = await request.json()
+            video_url = body.get("video_url")
+            platform = body.get("platform")
+        except:
+            form = await request.form()
+            video_url = form.get("video_url")
+            platform = form.get("platform")
+
+        if not video_url or not platform:
+            return JSONResponse({"error": "Missing video_url or platform"}, status_code=400)
+
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT created_by FROM promotions WHERE id = %s", (promotion_id,))
@@ -1748,8 +2069,10 @@ async def admin_remove_submission(request: Request, promotion_id: int, video_url
                         j = cur.fetchone()
                         if j and j[0]:
                             is_owner_or_admin = True
+                
                 if not is_owner_or_admin:
-                    return RedirectResponse(f"/promotions/{promotion_id}?msg=Unauthorized&err=1", status_code=303)
+                    return JSONResponse({"error": "Unauthorized"}, status_code=403)
+                
                 # Remove from blacklist first (cleanup), then delete the submission
                 cur.execute("DELETE FROM blacklisted_videos WHERE platform = %s AND video_url = %s AND promotion_id = %s", (platform, video_url, promotion_id))
                 cur.execute("DELETE FROM video_stats WHERE platform = %s AND short_link = %s", (platform, video_url))
@@ -1757,12 +2080,13 @@ async def admin_remove_submission(request: Request, promotion_id: int, video_url
                 conn.commit()
     except Exception as e:
         logger.error(f"Error removing submission (admin): {e}")
-        return RedirectResponse(f"/promotions/{promotion_id}?msg=Failed+to+remove&err=1", status_code=303)
-    return RedirectResponse(f"/promotions/{promotion_id}?msg=Submission+Removed", status_code=303)
+        return JSONResponse({"error": str(e)}, status_code=500)
+    
+    return {"status": "success", "message": "Submission Removed"}
 
 
 # --- REMOVE / DESTROY ENTIRE PROMOTION ---
-@app.post("/promotions/{promotion_id}/delete")
+@app.post("/api/promotions/{promotion_id}/delete")
 async def delete_promotion_route(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     if not user_id:
@@ -1791,7 +2115,7 @@ async def delete_promotion_route(request: Request, promotion_id: int):
 
 
 # --- LEAVE A PROMOTION ---
-@app.post("/promotions/{promotion_id}/leave")
+@app.post("/api/promotions/{promotion_id}/leave")
 async def leave_promotion_route(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     if not user_id:
@@ -1816,9 +2140,7 @@ async def leave_promotion_route(request: Request, promotion_id: int):
                 
                 cur.execute("DELETE FROM submitted_shorts WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
                 
-                # Remove from hierarchy
                 cur.execute("DELETE FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
-                
                 conn.commit()
     except Exception as e:
         logger.error(f"Error leaving promotion: {e}")
@@ -1827,53 +2149,117 @@ async def leave_promotion_route(request: Request, promotion_id: int):
     return RedirectResponse("/my-promotions?msg=Successfully+left+the+campaign", status_code=303)
 
 
-# --- UPDATED JOIN ROUTE (redirects to detail page now) ---
-@app.post("/promotions/join")
-async def join_promotion_route(
-    request: Request,
-    promotion_id: int = Form(...),
-    redirect_to: str = Form(None),
-):
+@app.post("/api/promotions/{promotion_id}/init-chat/{target_user_id}")
+async def start_join_request_chat(request: Request, promotion_id: int, target_user_id: int):
     user_id = get_current_user(request)
     if not user_id:
-        return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
-
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT is_banned, is_removed FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
-                record = cur.fetchone()
-                if record:
-                    if record[0]: # is_banned
-                        return RedirectResponse(f"/promotions/{promotion_id}?msg=You+have+been+banned+from+this+promotion.&err=1", status_code=status.HTTP_303_SEE_OTHER)
-                    if record[1]: # is_removed
-                        cur.execute("UPDATE promotion_joins SET is_removed = FALSE, joined_at = CURRENT_TIMESTAMP WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
-                        conn.commit()
+                # 1. Verify caller is admin
+                cur.execute("SELECT created_by, name FROM promotions WHERE id = %s", (promotion_id,))
+                promo = cur.fetchone()
+                if not promo:
+                    return JSONResponse({"error": "Promotion not found"}, status_code=404)
+                
+                # Check if current user is owner OR admin
+                is_admin = False
+                if int(promo[0]) == int(user_id):
+                    is_admin = True
                 else:
+                    cur.execute("SELECT is_admin FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        is_admin = True
+                
+                if not is_admin:
+                    return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+                promo_name = promo[1]
+                # Check if ticket already exists
+                subject = f"Join Request: {promo_name}"
+                cur.execute("SELECT id FROM support_tickets WHERE promotion_id = %s AND user_id = %s AND subject = %s", (promotion_id, target_user_id, subject))
+                ticket = cur.fetchone()
+                
+                if not ticket:
+                    # Create new ticket
                     cur.execute(
-                        "INSERT INTO promotion_joins (promotion_id, user_id) VALUES (%s, %s) ON CONFLICT (promotion_id, user_id) DO NOTHING",
-                        (promotion_id, user_id),
+                        "INSERT INTO support_tickets (promotion_id, user_id, subject, status) VALUES (%s, %s, %s, 'open') RETURNING id",
+                        (promotion_id, target_user_id, subject)
+                    )
+                    ticket_id = cur.fetchone()[0]
+                    
+                    # Add initial message from Admin
+                    cur.execute("SELECT email FROM app_users WHERE id = %s", (user_id,))
+                    admin_email = cur.fetchone()[0]
+                    msg = "Hi! We received your request to join our campaign. Could you tell us more about your social media presence?"
+                    cur.execute(
+                        "INSERT INTO ticket_messages (ticket_id, sender, message) VALUES (%s, %s, %s)",
+                        (ticket_id, admin_email, msg)
                     )
                     conn.commit()
-
-        dest = redirect_to or f"/promotions/{promotion_id}"
-        return RedirectResponse(
-            url=f"{dest}?msg=You+have+successfully+joined+this+promotion!",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
+                else:
+                    ticket_id = ticket[0]
+                
+                return {"status": "success", "ticket_id": ticket_id}
     except Exception as e:
-        logger.error(f"Error joining promotion: {e}")
-        return RedirectResponse(
-            url=f"/promotions/{promotion_id}?msg=Something+went+wrong.+Please+try+again.&err=1",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
+        logger.error(f"Error starting join request chat: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/api/promotions/{promotion_id}/requests/{target_user_id}/{action}")
+async def moderate_join_request(request: Request, promotion_id: int, target_user_id: int, action: str):
+    user_id = get_current_user(request)
+    if not user_id:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # 1. Verify caller is admin
+                cur.execute("SELECT created_by FROM promotions WHERE id = %s", (promotion_id,))
+                promo = cur.fetchone()
+                if not promo:
+                    return JSONResponse({"error": "Promotion not found"}, status_code=404)
+                
+                is_admin = False
+                if int(promo[0]) == int(user_id):
+                    is_admin = True
+                else:
+                    cur.execute("SELECT is_admin FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        is_admin = True
+                
+                if not is_admin:
+                    return JSONResponse({"error": "Forbidden"}, status_code=403)
+                
+                if action == "approve":
+                    cur.execute("UPDATE promotion_joins SET status = 'approved' WHERE promotion_id = %s AND user_id = %s", (promotion_id, target_user_id))
+                    msg = "Request approved"
+                elif action == "reject":
+                    cur.execute("DELETE FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, target_user_id))
+                    msg = "Request rejected"
+                else:
+                    return JSONResponse({"error": "Invalid action"}, status_code=400)
+                
+                conn.commit()
+                return {"status": "success", "message": msg}
+    except Exception as e:
+        logger.error(f"Error moderating join request: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    return RedirectResponse("/my-promotions?msg=Successfully+left+the+campaign", status_code=303)
+
+
 
 # --- MANAGE MEMBER ROUTES ---
-@app.post("/promotions/{promotion_id}/members/{target_user_id}/{action}")
+@app.post("/api/promotions/{promotion_id}/members/{target_user_id}/{action}")
 async def manage_member(request: Request, promotion_id: int, target_user_id: int, action: str):
     user_id = get_current_user(request)
     if not user_id:
-        return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     try:
         with get_db_connection() as conn:
@@ -1882,7 +2268,7 @@ async def manage_member(request: Request, promotion_id: int, target_user_id: int
                 cur.execute("SELECT created_by FROM promotions WHERE id = %s", (promotion_id,))
                 promo = cur.fetchone()
                 if not promo:
-                    return RedirectResponse("/promotions", status_code=status.HTTP_303_SEE_OTHER)
+                    return JSONResponse({"error": "Promotion not found"}, status_code=404)
                 
                 is_admin = (promo["created_by"] == user_id)
                 if not is_admin:
@@ -1892,54 +2278,54 @@ async def manage_member(request: Request, promotion_id: int, target_user_id: int
                         is_admin = True
                 
                 if not is_admin:
-                    return RedirectResponse(f"/promotions/{promotion_id}?msg=Unauthorized&err=1", status_code=status.HTTP_303_SEE_OTHER)
+                    return JSONResponse({"error": "Unauthorized action"}, status_code=403)
                 
                 # Cannot modify the creator
                 if promo["created_by"] == target_user_id:
-                    return RedirectResponse(f"/promotions/{promotion_id}?msg=Cannot+modify+the+campaign+creator&err=1", status_code=status.HTTP_303_SEE_OTHER)
+                    return JSONResponse({"error": "Cannot modify the campaign creator"}, status_code=400)
 
                 # Admins cannot act on themselves or on other admins — only the Owner can
                 caller_is_owner = (promo["created_by"] == user_id)
                 if not caller_is_owner:
                     # Block self-action
                     if target_user_id == user_id:
-                        return RedirectResponse(f"/promotions/{promotion_id}?msg=You+cannot+perform+this+action+on+yourself&err=1", status_code=status.HTTP_303_SEE_OTHER)
+                        return JSONResponse({"error": "You cannot perform this action on yourself"}, status_code=400)
                     # Block acting on other admins
                     cur.execute("SELECT is_admin FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, target_user_id))
                     target_record = cur.fetchone()
                     if target_record and target_record["is_admin"]:
-                        return RedirectResponse(f"/promotions/{promotion_id}?msg=Admins+cannot+manage+other+admins&err=1", status_code=status.HTTP_303_SEE_OTHER)
+                        return JSONResponse({"error": "Admins cannot manage other admins"}, status_code=403)
 
                 # 2. Perform action
+                msg = ""
                 if action == "make-admin":
                     cur.execute("UPDATE promotion_joins SET is_admin = TRUE WHERE promotion_id = %s AND user_id = %s", (promotion_id, target_user_id))
-                    msg = "Member+promoted+to+Admin"
+                    msg = "Member promoted to Admin"
                 elif action == "remove-admin":
                     if not caller_is_owner:
-                        return RedirectResponse(f"/promotions/{promotion_id}?msg=Only+the+Owner+can+revoke+Admin+rights&err=1", status_code=status.HTTP_303_SEE_OTHER)
+                        return JSONResponse({"error": "Only the Owner can revoke Admin rights"}, status_code=403)
                     cur.execute("UPDATE promotion_joins SET is_admin = FALSE WHERE promotion_id = %s AND user_id = %s", (promotion_id, target_user_id))
-                    msg = "Admin+rights+revoked"
+                    msg = "Admin rights revoked"
                 elif action == "remove":
                     cur.execute("UPDATE promotion_joins SET is_removed = TRUE, is_admin = FALSE WHERE promotion_id = %s AND user_id = %s", (promotion_id, target_user_id))
-                    msg = "Member+removed+from+promotion"
+                    msg = "Member removed from promotion"
                 elif action == "ban":
-                    cur.execute("UPDATE promotion_joins SET is_banned = TRUE, is_removed = TRUE, is_admin = FALSE WHERE promotion_id = %s AND user_id = %s", (promotion_id, target_user_id))
-                    msg = "Member+banned+permanently"
+                    cur.execute("UPDATE promotion_joins SET is_banned = TRUE, is_admin = FALSE WHERE promotion_id = %s AND user_id = %s", (promotion_id, target_user_id))
+                    msg = "Member banned"
                 else:
-                    return RedirectResponse(f"/promotions/{promotion_id}?msg=Invalid+action&err=1", status_code=status.HTTP_303_SEE_OTHER)
+                    return JSONResponse({"error": "Invalid action"}, status_code=400)
                 
                 conn.commit()
-                return RedirectResponse(f"/promotions/{promotion_id}?msg={msg}", status_code=status.HTTP_303_SEE_OTHER)
-
+                return {"status": "success", "message": msg}
     except Exception as e:
         logger.error(f"Error managing member: {e}")
-        return RedirectResponse(f"/promotions/{promotion_id}?msg=Server+Error&err=1", status_code=status.HTTP_303_SEE_OTHER)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 # ==========================================
 #        SUPPORT TICKET & CHAT ROUTES
 # ==========================================
 
-@app.post("/promotions/{promotion_id}/tickets/create")
+@app.post("/api/promotions/{promotion_id}/tickets/create")
 async def create_ticket(
     request: Request,
     promotion_id: int,
@@ -1981,7 +2367,7 @@ async def create_ticket(
         )
 
 
-@app.post("/promotions/{promotion_id}/tickets/{ticket_id}/delete")
+@app.post("/api/promotions/{promotion_id}/tickets/{ticket_id}/delete")
 async def delete_ticket(request: Request, promotion_id: int, ticket_id: int):
     user_id = get_current_user(request)
     if not user_id:
@@ -2033,7 +2419,7 @@ async def delete_ticket(request: Request, promotion_id: int, ticket_id: int):
             status_code=status.HTTP_303_SEE_OTHER
         )
 
-@app.post("/promotions/{promotion_id}/tickets/{ticket_id}/upload_image")
+@app.post("/api/promotions/{promotion_id}/tickets/{ticket_id}/upload_image")
 async def upload_ticket_image(request: Request, promotion_id: int, ticket_id: int, file: UploadFile = File(...)):
     user_id = get_current_user(request)
     if not user_id:
@@ -2125,6 +2511,36 @@ async def websocket_endpoint(websocket: WebSocket, promotion_id: int, ticket_id:
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)
 
+
+
+# ==========================================
+#           FRONTEND SERVING (MOVED)
+# ==========================================
+templates = Jinja2Templates(directory="templates")
+
+if os.path.exists("frontend/out"):
+    @app.middleware("http")
+    async def serve_static_html(request: Request, call_next):
+        response = await call_next(request)
+        if response.status_code == 404:
+            path = request.url.path.lstrip("/")
+            if not path: path = "index"
+            
+            # Skip for API, static assets, and Next.js internal files
+            if (path.startswith("api/") or path.startswith("static/") or 
+                path.startswith("ws/") or path.startswith("_next/") or 
+                path.endswith(".txt") or path.endswith(".js") or 
+                path.endswith(".css") or path.endswith(".json")):
+                return response
+                
+            html_path = os.path.join("frontend/out", f"{path}.html")
+            if os.path.exists(html_path):
+                return HTMLResponse(content=open(html_path, "r", encoding="utf-8").read())
+        return response
+
+    app.mount("/", StaticFiles(directory="frontend/out", html=True), name="frontend")
+else:
+    logger.warning("⚠️ 'frontend/out' directory not found.")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

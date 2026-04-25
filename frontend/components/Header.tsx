@@ -1,19 +1,31 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
 
   return (
     <header>
       <div className="header-content">
-        <Link href="/" className="logo-main" style={{ textDecoration: "none", color: "white" }}>
-          <i className="fa-solid fa-robot"></i> AutoSocial
-        </Link>
+        <div className="logo-block">
+          <Link href="/" className="logo-main" style={{ textDecoration: "none", color: "white" }}>
+            <i className="fa-solid fa-robot"></i> AutoSocial
+          </Link>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-soft)", marginLeft: "32px", marginTop: "-4px" }}>
+            Social Intelligence Dashboard
+          </div>
+        </div>
 
-        <nav style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+        <nav className="header-actions">
           {user ? (
             <>
               <Link href="/promotions" className="btn-header">
@@ -26,10 +38,7 @@ export default function Header() {
                 <i className="fa-solid fa-folder-open"></i> My Work
               </Link>
               <div style={{ width: "1px", height: "20px", background: "rgba(255,255,255,0.1)", margin: "0 8px" }}></div>
-              <span style={{ fontSize: "0.85rem", color: "var(--text-soft)" }}>
-                {user.email.split("@")[0]}
-              </span>
-              <button onClick={logout} className="btn-header" style={{ background: "rgba(239, 68, 68, 0.1)", borderColor: "rgba(239, 68, 68, 0.2)", color: "#fca5a5" }}>
+              <button onClick={handleLogout} className="btn-header btn-logout" style={{ border: "1px solid rgba(239, 68, 68, 0.4)", color: "#fca5a5" }}>
                 <i className="fa-solid fa-right-from-bracket"></i> Logout
               </button>
             </>

@@ -6,17 +6,18 @@ import { AuthProvider } from "@/context/AuthContext";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
 const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
   variable: "--font-poppins",
+  weight: ["300", "400", "500", "600"],
 });
 
 export const metadata: Metadata = {
-  title: "AutoSocial",
-  description: "Social Media Automation Dashboard",
+  title: "AutoSocial | Social Intelligence Dashboard",
+  description: "Automate your social growth.",
 };
 
 export default function RootLayout({
@@ -27,12 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-        />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
       </head>
-      <body className={`${inter.variable} ${poppins.variable}`}>
+      <body className={`${inter.variable} ${poppins.variable} antialiased`}>
         <AuthProvider>
           {children}
         </AuthProvider>

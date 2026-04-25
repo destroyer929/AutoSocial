@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
@@ -14,7 +13,11 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // await apiFetch("/api/forgot-password", { ... });
+      // Assuming a backend endpoint exists or will exist
+      const data = await apiFetch("/api/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
       setMessage({ text: "If that email exists, we sent a code.", isError: false });
     } catch (err) {
       setMessage({ text: "Something went wrong.", isError: true });
@@ -24,31 +27,220 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="auth-page-wrapper">
-      <style jsx>{`
-        .auth-page-wrapper { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: var(--bg-main); }
-        .auth-card { background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; border: 1px solid var(--border); width: 100%; max-width: 400px; text-align: center; }
-        input { width: 100%; padding: 12px; border-radius: 12px; background: #111; border: 1px solid #333; color: white; margin-bottom: 20px; }
-        .btn { width: 100%; padding: 12px; border-radius: 999px; background: var(--accent-neon); color: black; font-weight: 700; border: none; cursor: pointer; }
+    <>
+      <style jsx global>{`
+        :root {
+          --bg-main: radial-gradient(1200px circle at 10% 10%, #1c2a3a 0%, transparent 40%),
+                     radial-gradient(1000px circle at 90% 20%, #2d1f3a 0%, transparent 40%),
+                     linear-gradient(180deg, #0b0f14, #0e141b);
+          --glass-bg: rgba(255,255,255,0.06);
+          --glass-border: rgba(255,255,255,0.15);
+          --text-main: #ffffff;
+          --text-soft: #aab4c0;
+          --accent-neon: #6cf2d5;
+          --accent-gold: #f5d28b;
+        }
+
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+          font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        body {
+          background: var(--bg-main);
+          min-height: 100vh;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin: 0;
+          -webkit-font-smoothing: antialiased;
+          color: var(--text-main);
+        }
+
+        .auth-card {
+          background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+          padding: 32px 28px 28px;
+          border-radius: 22px;
+          box-shadow: 0 30px 80px rgba(0,0,0,.78);
+          width: 100%;
+          max-width: 400px;
+          text-align: center;
+          border: 1px solid var(--glass-border);
+          backdrop-filter: blur(26px);
+          -webkit-backdrop-filter: blur(26px);
+          position: relative;
+          overflow: hidden;
+          animation: slideUp 0.45s ease-out;
+        }
+
+        .auth-card::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(340px circle at top left, rgba(255,255,255,.16), transparent 55%);
+          pointer-events: none;
+        }
+
+        @keyframes slideUp {
+          from { transform: translateY(18px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+
+        .logo {
+          position: relative;
+          font-size: 1.5rem;
+          font-weight: 600;
+          background: linear-gradient(135deg, #ffffff, var(--accent-neon));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          margin-bottom: 14px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          letter-spacing: -0.03em;
+        }
+
+        .logo i {
+          color: var(--accent-neon);
+          -webkit-text-fill-color: var(--accent-neon);
+        }
+
+        .subtitle {
+          position: relative;
+          color: var(--text-soft);
+          margin-bottom: 20px;
+          font-size: 0.9rem;
+          line-height: 1.6;
+        }
+
+        /* Alert */
+
+        .alert {
+          background: rgba(59,130,246,0.16);
+          color: #bfdbfe;
+          padding: 10px 12px;
+          border-radius: 12px;
+          margin-bottom: 16px;
+          font-size: 0.86rem;
+          border: 1px solid rgba(59,130,246,0.5);
+          text-align: left;
+        }
+
+        .alert.error {
+          background: rgba(239,68,68,0.16);
+          color: #fecaca;
+          border-color: rgba(239,68,68,0.5);
+        }
+
+        /* Form */
+
+        form {
+          position: relative;
+          z-index: 1;
+        }
+
+        input {
+          width: 100%;
+          padding: 11px 14px;
+          border: 1px solid rgba(148,163,184,0.45);
+          border-radius: 12px;
+          margin-bottom: 14px;
+          box-sizing: border-box;
+          background: rgba(6,10,17,0.92);
+          color: var(--text-main);
+          font-size: 0.9rem;
+          outline: none;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        input::placeholder {
+          color: rgba(148,163,184,0.8);
+        }
+
+        input:focus {
+          border-color: var(--accent-neon);
+          box-shadow: 0 0 0 1px rgba(108,242,213,0.6);
+          background: rgba(6,10,17,1);
+        }
+
+        .btn {
+          width: 100%;
+          padding: 12px;
+          background: linear-gradient(135deg, var(--accent-neon), #4dd0e1);
+          color: #020617;
+          border: none;
+          border-radius: 999px;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 0.95rem;
+          transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+          position: relative;
+          z-index: 1;
+          box-shadow: 0 22px 50px rgba(0,0,0,.8);
+        }
+
+        .btn:hover {
+          transform: translateY(-1px);
+          background: linear-gradient(135deg, #4dd0e1, var(--accent-neon));
+          box-shadow: 0 28px 70px rgba(0,0,0,.92);
+        }
+
+        .btn:active {
+          transform: translateY(0);
+          box-shadow: 0 18px 40px rgba(0,0,0,.85);
+        }
+
+        .back-link {
+          display: block;
+          margin-top: 14px;
+          color: var(--text-soft);
+          text-decoration: none;
+          font-size: 0.86rem;
+          position: relative;
+          z-index: 1;
+          transition: color 0.2s ease;
+        }
+
+        .back-link:hover {
+          color: #e5e7eb;
+          text-decoration: underline;
+        }
+
+        @media (max-width: 480px) {
+          .auth-card {
+            padding: 26px 20px 24px;
+          }
+        }
       `}</style>
+
       <div className="auth-card">
-        <h2 style={{ marginBottom: "10px" }}>Reset Password</h2>
-        <p style={{ color: "var(--text-soft)", marginBottom: "30px", fontSize: "0.9rem" }}>Enter your email to receive a recovery code.</p>
-        
+        <div className="logo"><i className="fa-solid fa-key"></i> Recovery</div>
+        <p className="subtitle">Enter your email to receive a reset code.</p>
+
         {message && (
-          <div style={{ padding: "10px", borderRadius: "8px", background: message.isError ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)", color: message.isError ? "#fca5a5" : "#bbf7d0", marginBottom: "20px" }}>
+          <div className={`alert ${message.isError ? "error" : ""}`}>
             {message.text}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <button type="submit" className="btn" disabled={loading}>Send Reset Code</button>
+          <input
+            type="email"
+            name="email"
+            placeholder="name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <button type="submit" className="btn" disabled={loading}>
+            {loading ? "Sending..." : "Send Code"}
+          </button>
         </form>
-        <div style={{ marginTop: "20px", fontSize: "0.9rem" }}>
-          <Link href="/login" style={{ color: "var(--accent-neon)", textDecoration: "none" }}>Back to Login</Link>
-        </div>
+
+        <Link href="/login" className="back-link">Back to Login</Link>
       </div>
-    </div>
+    </>
   );
 }
