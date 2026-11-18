@@ -13,6 +13,7 @@
 [![FAISS](https://img.shields.io/badge/Vector%20Search-FAISS-00599C.svg?style=flat-square&logo=meta&logoColor=white)](https://github.com/facebookresearch/faiss)
 [![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6.svg?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Python](https://img.shields.io/badge/Language-Python%203.10+-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
+[![License: Proprietary](https://img.shields.io/badge/License-All%20Rights%20Reserved-red.svg?style=flat-square)](LICENSE)
 
 [Explore Features](#-core-features) • [System Architecture](#-system-architecture) • [How Viral LLM Works](#-how-the-ai--rag-engine-works) • [Quick Start](#-quick-start-guide) • [API Reference](#-api-endpoints)
 
@@ -337,16 +338,17 @@ CREATE DATABASE discord_bot_db;
 
 ---
 
-## 🤝 Contributing
+## 🔒 Proprietary Status & Terms of Use
 
-Contributions, issues, and feature requests are welcome!
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+This repository and its codebase are maintained as a private, proprietary software project for personal demonstration, evaluation, and portfolio purposes by **Karunakar (destroyer929)**. Unauthorized copying, cloning, modification, commercial deployment, or redistribution of this repository or any portion thereof is strictly prohibited.
 
 ---
 
-## 📝 License
-This project is open-source under the MIT License. Feel free to use, customize, and extend it!
+## 📝 License & Copyright
+
+**Copyright © 2026 Karunakar (destroyer929). All Rights Reserved.**
+
+This software, its source code, ML/RAG pipelines, schemas, and associated documentation are the confidential, proprietary property of the Author. No license or permission is granted to reproduce, distribute, sublicense, modify, or commercially exploit this software without prior explicit written permission.
+
+For inquiries or formal licensing permissions, please contact:  
+📬 **Email:** [karunakarchinna33@gmail.com](mailto:karunakarchinna33@gmail.com)
