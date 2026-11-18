@@ -754,7 +754,7 @@ def create_campaign(
 
 
 
-def list_promotions(search: str | None = None):
+def list_promotions(search: str | None = None, category: str | None = None):
     with get_db_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             base = """
@@ -773,6 +773,9 @@ def list_promotions(search: str | None = None):
             if search:
                 base += " AND (p.name ILIKE %s OR c.title ILIKE %s)"
                 params.extend([f"%{search}%", f"%{search}%"])
+            if category and category != "all":
+                base += " AND c.campaign_type = %s"
+                params.append(category)
             base += " ORDER BY p.created_at DESC"
             cur.execute(base, tuple(params))
             return cur.fetchall()

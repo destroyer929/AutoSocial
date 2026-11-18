@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { Suspense } from "react";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/";
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,7 +50,7 @@ export default function LoginPage() {
       });
       if (data.success) {
         await login(data);
-        router.push("/");
+        router.push(redirect);
       }
     } catch (err: any) {
       setMessage({ text: err.message || "Google Login failed", isError: true });
@@ -69,7 +72,7 @@ export default function LoginPage() {
 
       if (data.success) {
         await login(data);
-        router.push("/");
+        router.push(redirect);
       }
     } catch (err: any) {
       setMessage({ text: err.message || "Invalid credentials", isError: true });
@@ -495,11 +498,19 @@ export default function LoginPage() {
 
           <div className="auth-footer">
             Don't have an account?{" "}
-            <Link href="/signup">Sign up</Link>
+            <Link href={`/signup${redirect !== "/" ? "?redirect=" + encodeURIComponent(redirect) : ""}`}>Sign up</Link>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{color:'white', padding:'40px'}}>Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
 

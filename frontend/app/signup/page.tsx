@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { Suspense } from "react";
 
-export default function SignupPage() {
+function SignupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/";
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,7 +50,7 @@ export default function SignupPage() {
       });
       if (data.success) {
         await login(data);
-        router.push("/");
+        router.push(redirect);
       }
     } catch (err: any) {
       setMessage({ text: err.message || "Google Signup failed", isError: true });
@@ -74,6 +77,11 @@ export default function SignupPage() {
 
       if (data.success) {
         setMessage({ text: data.message, isError: false });
+        // Automatically log in after signup if API returns tokens, or redirect to login
+        if (data.token) {
+           await login(data);
+           router.push(redirect);
+        }
       }
     } catch (err: any) {
       setMessage({ text: err.message || "Signup failed", isError: true });
@@ -407,11 +415,19 @@ export default function SignupPage() {
           <div id="googleBtn"></div>
 
           <div className="auth-footer">
-            Already have an account? <Link href="/login">Log In</Link>
+            Already have an account? <Link href={`/login${redirect !== "/" ? "?redirect=" + encodeURIComponent(redirect) : ""}`}>Log In</Link>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div style={{color:'white', padding:'40px'}}>Loading...</div>}>
+      <SignupContent />
+    </Suspense>
   );
 }
 

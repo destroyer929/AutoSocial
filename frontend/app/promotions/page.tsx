@@ -15,14 +15,19 @@ function PromotionsContent() {
   const initialQuery = searchParams.get("q") || "";
   
   const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [category, setCategory] = useState("all");
   const [promotions, setPromotions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchPromotions = async () => {
       try {
-        const queryStr = searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : "";
-        const data = await apiFetch(`/api/promotions${queryStr}`);
+        setLoading(true);
+        const queryParams = new URLSearchParams();
+        if (searchQuery) queryParams.append("q", searchQuery);
+        if (category !== "all") queryParams.append("category", category);
+        
+        const data = await apiFetch(`/api/promotions?${queryParams.toString()}`);
         setPromotions(data.promotions || []);
       } catch (err) {
         console.error("Failed to fetch promotions", err);
@@ -31,7 +36,7 @@ function PromotionsContent() {
       }
     };
     fetchPromotions();
-  }, [searchQuery]);
+  }, [searchQuery, category]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -455,14 +460,16 @@ function PromotionsContent() {
             <p>Discover and join active campaigns</p>
           </div>
 
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <Link href="/create-campaign" className="btn-create">
-              <i className="fa-solid fa-plus"></i> Create Campaign
-            </Link>
-            <Link href="/" className="btn-back">
-              <i className="fa-solid fa-arrow-left-long"></i> Back to Dashboard
-            </Link>
-          </div>
+          {user && (
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <Link href="/create-campaign" className="btn-create">
+                <i className="fa-solid fa-plus"></i> Create Campaign
+              </Link>
+              <Link href="/" className="btn-back">
+                <i className="fa-solid fa-arrow-left-long"></i> Back to Dashboard
+              </Link>
+            </div>
+          )}
         </div>
 
         {joinedParam && (
@@ -472,18 +479,66 @@ function PromotionsContent() {
           </div>
         )}
 
-        <form onSubmit={handleSearch} className="search-bar">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search promotions or campaigns..."
-            className="search-input"
-          />
-          <button type="submit" className="btn-search">
-            <i className="fa-solid fa-magnifying-glass"></i> Search
-          </button>
-        </form>
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center",
+          background: "var(--glass-bg)", 
+          padding: "8px", 
+          borderRadius: "22px", 
+          border: "1px solid var(--glass-border)", 
+          backdropFilter: "blur(20px)", 
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.6)",
+          marginBottom: "40px"
+        }}>
+          {/* Category Dropdown Prefix */}
+          <div style={{ position: "relative", borderRight: "1px solid var(--glass-border)", paddingRight: "10px", marginRight: "10px" }}>
+            <select 
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              style={{ 
+                background: "transparent", 
+                color: "var(--accent-neon)", 
+                border: "none", 
+                borderRadius: "12px", 
+                padding: "10px 30px 10px 15px", 
+                outline: "none", 
+                cursor: "pointer",
+                fontSize: "0.9rem",
+                fontWeight: 700,
+                appearance: "none",
+                width: "140px"
+              }}
+            >
+              <option value="all">All Categories</option>
+              <option value="podcasts">Podcasts</option>
+              <option value="gaming">Gaming</option>
+              <option value="lifestyle">Lifestyle</option>
+              <option value="fashion">Fashion</option>
+              <option value="tech">Tech</option>
+              <option value="finance">Finance</option>
+              <option value="irl-content">IRL Content</option>
+              <option value="sport">Sport</option>
+            </select>
+            <i className="fa-solid fa-chevron-down" style={{ position: "absolute", right: "15px", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", color: "var(--accent-neon)", pointerEvents: "none" }}></i>
+          </div>
+
+          <form onSubmit={handleSearch} style={{ flex: 1, display: "flex", alignItems: "center" }}>
+            <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center" }}>
+              <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "12px", color: "var(--text-soft)" }}></i>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search promotions or campaigns..."
+                className="search-input"
+                style={{ width: "100%", padding: "10px 10px 10px 42px", border: "none", background: "transparent", fontSize: "1rem" }}
+              />
+            </div>
+            <button type="submit" className="btn-search" style={{ padding: "10px 24px", borderRadius: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+               <i className="fa-solid fa-magnifying-glass"></i> Search
+            </button>
+          </form>
+        </div>
 
         {!loading && promotions.length > 0 ? (
           <div className="promotions-grid">

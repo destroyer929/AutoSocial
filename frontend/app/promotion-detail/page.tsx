@@ -103,6 +103,10 @@ function PromotionDetailContent() {
   };
 
   const handleJoin = async () => {
+    if (!user || !user.email) {
+      router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search));
+      return;
+    }
     try {
       const res = await apiFetch("/api/promotions/join", {
         method: "POST",
@@ -785,7 +789,7 @@ function PromotionDetailContent() {
         <div className="topbar-sep"></div>
         <span className="topbar-promo-name">{promotion.campaign_title || promotion.name}</span>
         <div className="topbar-right">
-          <span className="topbar-user">{user?.email?.split('@')[0]}</span>
+          <span className="topbar-user">{user?.email ? user.email.split('@')[0] : ''}</span>
           {already_joined && !is_owner && (
             <button onClick={handleLeave} className="topbar-btn" style={{ color: "#ef4444", borderColor: "rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.1)", cursor: "pointer" }}>
               <i className="fa-solid fa-person-walking-arrow-right"></i> Leave Campaign
@@ -944,8 +948,8 @@ function PromotionDetailContent() {
                     <h3>Join this Promotion</h3>
                     <p>Join to unlock video submission, analytics tracking, and direct support for this campaign.</p>
                     <button onClick={handleJoin} className="btn-primary" style={{ width: '100%' }}>
-                      <i className={`fa-solid ${promotion.join_policy === 'manual' ? 'fa-user-plus' : 'fa-handshake-simple'}`}></i>
-                      {promotion.join_policy === 'manual' ? ' Request to Join' : ' Join Promotion'}
+                      <i className={`fa-solid ${!user?.email ? 'fa-sign-in-alt' : (promotion.join_policy === 'manual' ? 'fa-user-plus' : 'fa-handshake-simple')}`}></i>
+                      {!user?.email ? ' Login to Join' : (promotion.join_policy === 'manual' ? ' Request to Join' : ' Join Promotion')}
                     </button>
                   </>
                 )}

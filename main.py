@@ -232,7 +232,7 @@ def make_json_serializable(obj):
 async def api_get_me(request: Request):
     user_id = get_current_user(request)
     if not user_id:
-        return JSONResponse({"logged_in": False}, status_code=401)
+        return {"logged_in": False}
     return {"logged_in": True, "user_email": request.session.get("email"), "user_id": user_id}
 
 @app.post("/api/login")
@@ -320,9 +320,43 @@ async def api_get_accounts(request: Request, platform: str = "all"):
     data = [{"id": a["id"], "platform": a["platform"], "account_name": a["account_name"]} for a in accounts]
     return make_json_serializable({"accounts": data})
 
+@app.post("/api/accounts/register")
+async def api_register_account(request: Request, data: dict):
+    user_id = get_current_user(request)
+    if not user_id:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    platform = data.get("platform")
+    account_name = data.get("account_name", "").replace("@", "").strip()
+
+    if not platform or not account_name:
+        return JSONResponse({"error": "Missing platform or account_name"}, status_code=400)
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # Global check
+                cur.execute(
+                    "SELECT 1 FROM registered_accounts WHERE platform=%s AND account_name=%s",
+                    (platform, account_name),
+                )
+                if cur.fetchone():
+                    return JSONResponse({"error": f"Account @{account_name} is already registered."}, status_code=400)
+
+                cur.execute(
+                    """
+                    INSERT INTO registered_accounts (web_user_id, platform, account_name, is_verified)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (user_id, platform, account_name, False),
+                )
+        return {"status": "success", "message": f"Account @{account_name} linked."}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.get("/api/promotions")
-async def api_get_promotions(request: Request, q: str = ""):
-    promos = list_promotions(q)
+async def api_get_promotions(request: Request, q: str = "", category: str = "all"):
+    promos = list_promotions(search=q, category=category)
     serialized = []
     for p in promos:
         p_dict = dict(p)
@@ -470,16 +504,8 @@ async def login_submit(
         request.session["user_id"] = user["id"]          # web user id
         request.session["email"] = user["email"]
         
-        # If 'Remember Me' is NOT checked, the session will expire when the browser closes 
-        # (default Starlette behavior if max_age is None).
-        # To support true "Remember Me", we'll set a 30-day cookie if checked.
-        response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-        if remember == "on":
-            # Note: We set a secondary cookie to signal long-term persistence 
-            # Or we can just let the session middleware use its default.
-            # In this implementation, we'll ensure the session lasts 30 days.
-            pass 
-            
+        redirect_url = request.query_params.get("redirect", "/")
+        response = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
         return response
 
     return templates.TemplateResponse(
@@ -1450,22 +1476,18 @@ async def api_my_promotions(request: Request):
 
 # --- PROMOTIONS PAGE ---
 @app.get("/promotions", response_class=HTMLResponse)
-async def promotions_page(request: Request, q: str = None):
-    web_user_id = get_current_user(request)
-    if not web_user_id:
-        return RedirectResponse(
-            url="/login", status_code=status.HTTP_303_SEE_OTHER
-        )
-
-    promos = list_promotions(search=q)
+async def promotions_page(request: Request, q: str = None, category: str = "all"):
+    promos = list_promotions(search=q, category=category)
+    user_email = request.session.get("email") or request.session.get("user_email")
 
     return templates.TemplateResponse(
         "promotions.html",
         {
             "request": request,
-            "user_email": request.session.get("email"),
+            "user_email": user_email,
             "promotions": promos,
             "search_query": q or "",
+            "category": category
         },
     )
 
@@ -1478,8 +1500,7 @@ async def promotions_page(request: Request, q: str = None):
 async def api_get_promotion_detail_full(request: Request, promotion_id: int):
     user_id = get_current_user(request)
     user_email = request.session.get("email", "")
-    if not user_id:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    # Allow guests but some fields will be empty/restricted
 
     promotion = None
     already_joined = False
@@ -1507,12 +1528,15 @@ async def api_get_promotion_detail_full(request: Request, promotion_id: int):
                     raise HTTPException(status_code=404, detail="Promotion not found")
 
                 # Check if current user is the Admin/Creator of this promotion
-                is_admin = (int(promotion["created_by"]) == int(user_id))
-                is_owner = (int(promotion["created_by"]) == int(user_id))
+                is_admin = (int(promotion["created_by"]) == int(user_id)) if user_id else False
+                is_owner = (int(promotion["created_by"]) == int(user_id)) if user_id else False
 
                 # 2. Check if current user already joined
-                cur.execute("SELECT 1 FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
-                already_joined = cur.fetchone() is not None
+                if user_id:
+                    cur.execute("SELECT 1 FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
+                    already_joined = cur.fetchone() is not None
+                else:
+                    already_joined = False
 
                 # 3. Count total joiners
                 cur.execute("SELECT COUNT(*) FROM promotion_joins WHERE promotion_id = %s", (promotion_id,))
@@ -1571,7 +1595,7 @@ async def api_get_promotion_detail_full(request: Request, promotion_id: int):
                     WHERE a.promotion_id = %s 
                     AND (r.is_dismissed IS NULL OR r.is_dismissed = FALSE)
                     ORDER BY a.created_at DESC
-                """, (user_id, promotion_id))
+                """, (user_id if user_id else -1, promotion_id))
                 
                 for row in cur.fetchall():
                     item = dict(row)
@@ -1580,24 +1604,24 @@ async def api_get_promotion_detail_full(request: Request, promotion_id: int):
                     if not item['is_read'] and item['author_id'] != user_id:
                         unread_count += 1
 
-                # 4. Fetch User's OWN Support Tickets
-                cur.execute("""
-                    SELECT t.*,
-                           (SELECT message FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY m.created_at DESC LIMIT 1) as last_message,
-                           (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id AND m.sender != %s AND m.is_read = FALSE) as unread_msg_count
-                    FROM support_tickets t
-                    WHERE t.promotion_id = %s AND t.user_id = %s
-                    ORDER BY t.created_at DESC
-                """, (user_email, promotion_id, user_id))
-                for row in cur.fetchall():
-                    ticket_data = {
-                        "id": row["id"], "subject": row["subject"], "status": row["status"],
-                        "created_at": row["created_at"].strftime('%d %b %Y'),
-                        "last_message": row["last_message"][:30] + "..." if row["last_message"] and len(row["last_message"]) > 30 else row["last_message"],
-                        "unread_count": row["unread_msg_count"]
-                    }
-                    support_tickets.append(ticket_data)
-                    unread_count += row["unread_msg_count"]
+                if user_id:
+                    cur.execute("""
+                        SELECT t.*,
+                               (SELECT message FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY m.created_at DESC LIMIT 1) as last_message,
+                               (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id AND m.sender != %s AND m.is_read = FALSE) as unread_msg_count
+                        FROM support_tickets t
+                        WHERE t.promotion_id = %s AND t.user_id = %s
+                        ORDER BY t.created_at DESC
+                    """, (user_email, promotion_id, user_id))
+                    for row in cur.fetchall():
+                        ticket_data = {
+                            "id": row["id"], "subject": row["subject"], "status": row["status"],
+                            "created_at": row["created_at"].strftime('%d %b %Y'),
+                            "last_message": row["last_message"][:30] + "..." if row["last_message"] and len(row["last_message"]) > 30 else row["last_message"],
+                            "unread_count": row["unread_msg_count"]
+                        }
+                        support_tickets.append(ticket_data)
+                        unread_count += row["unread_msg_count"]
 
                 # 5. If Admin, fetch ALL tickets for this promotion
                 if is_admin:
@@ -1633,18 +1657,23 @@ async def api_get_promotion_detail_full(request: Request, promotion_id: int):
                     join_requests = [{"id": r["id"], "user_id": r["user_id"], "email": r["email"]} for r in pending_rows]
 
                 # 8. Get current user's join status
-                cur.execute("SELECT status, is_removed, is_banned FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
-                user_join_record = cur.fetchone()
-                user_join_status = user_join_record[0] if user_join_record else None
-                is_removed = user_join_record[1] if user_join_record else False
-                is_banned = user_join_record[2] if user_join_record else False
+                if user_id:
+                    cur.execute("SELECT status, is_removed, is_banned FROM promotion_joins WHERE promotion_id = %s AND user_id = %s", (promotion_id, user_id))
+                    user_join_record = cur.fetchone()
+                    user_join_status = user_join_record[0] if user_join_record else None
+                    is_removed = user_join_record[1] if user_join_record else False
+                    is_banned = user_join_record[2] if user_join_record else False
+                else:
+                    user_join_status = None
+                    is_removed = False
+                    is_banned = False
 
     except Exception as e:
         logger.error(f"Error loading promotion detail: {e}")
         raise HTTPException(status_code=500, detail="Error loading promotion detail")
 
     # Fetch accounts/analytics
-    accounts = get_registered_accounts(user_id)
+    accounts = get_registered_accounts(user_id) if user_id else []
     accounts_data = [dict(a) for a in accounts] if accounts else []
     submitted_videos = []
     analytics = None

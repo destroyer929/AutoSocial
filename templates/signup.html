@@ -106,7 +106,7 @@
         </form>
 
         <div class="auth-footer">
-            Already have an account? <a href="/login">Log In</a>
+            Already have an account? <a href="/login" id="login-link">Log In</a>
         </div>
     </div>
 </div>
@@ -133,6 +133,15 @@
             return false; // Prevent submission
         }
         return true;
+    }
+    }
+    
+    if (params.has('redirect')) {
+        const loginLink = document.getElementById('login-link');
+        if (loginLink) {
+            const currentHref = loginLink.getAttribute('href');
+            loginLink.setAttribute('href', `${currentHref}?redirect=${encodeURIComponent(params.get('redirect'))}`);
+        }
     }
 </script>
 

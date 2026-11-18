@@ -15,3 +15,7 @@ web/
 .vscode/
 .idea/
 *.log
+scratch/
+static/uploads/chat/
+
+

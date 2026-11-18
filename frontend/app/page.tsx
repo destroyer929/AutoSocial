@@ -24,6 +24,8 @@ export default function Dashboard() {
   const [llmResultPlatform, setLlmResultPlatform] = useState("");
   const [llmScores, setLlmScores] = useState({ hook: "", virality: "" });
   const [llmData, setLlmData] = useState<any>({});
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showGenerateInputModal, setShowGenerateInputModal] = useState(false);
 
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -33,6 +35,18 @@ export default function Dashboard() {
   const [goal, setGoal] = useState("followers");
   const [platform, setPlatform] = useState("instagram");
 
+  // Link Account values
+  const [linkPlatform, setLinkPlatform] = useState("instagram");
+  const [accountName, setAccountName] = useState("");
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkError, setLinkError] = useState("");
+
+  // Campaign Discovery (Guest)
+  const [guestPromotions, setGuestPromotions] = useState<any[]>([]);
+  const [guestSearch, setGuestSearch] = useState("");
+  const [guestCategory, setGuestCategory] = useState("all");
+  const [guestLoading, setGuestLoading] = useState(false);
+
   useEffect(() => {
     if (user) {
       apiFetch(`/api/accounts?platform=${currentPlatform}`)
@@ -40,6 +54,28 @@ export default function Dashboard() {
         .catch(err => console.error(err));
     }
   }, [user, currentPlatform]);
+
+  useEffect(() => {
+    if (!user) {
+      fetchDiscovery();
+    }
+  }, [user, guestSearch, guestCategory]);
+
+  const fetchDiscovery = async () => {
+    try {
+      setGuestLoading(true);
+      const query = new URLSearchParams();
+      if (guestSearch) query.append("q", guestSearch);
+      if (guestCategory !== "all") query.append("category", guestCategory);
+      
+      const res = await apiFetch(`/api/promotions?${query.toString()}`);
+      setGuestPromotions(res.promotions || []);
+    } catch (err) {
+      console.error("Discovery fetch failed:", err);
+    } finally {
+      setGuestLoading(false);
+    }
+  };
 
   const handleDeleteAccount = async (accountId: number) => {
     if (confirm("Delete this account? This removes all stats history.")) {
@@ -59,6 +95,27 @@ export default function Dashboard() {
     e.preventDefault();
     alert("Campaign created (placeholder for API submit)");
     setShowCampaignModal(false);
+  };
+
+  const handleLinkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLinkLoading(true);
+    setLinkError("");
+    try {
+      await apiFetch("/api/accounts/register", {
+        method: "POST",
+        body: JSON.stringify({ platform: linkPlatform, account_name: accountName })
+      });
+      // Refresh accounts
+      const data = await apiFetch(`/api/accounts?platform=${currentPlatform}`);
+      setAccounts(data.accounts || []);
+      setShowLinkModal(false);
+      setAccountName("");
+    } catch (err: any) {
+      setLinkError(err.message || "Failed to link account");
+    } finally {
+      setLinkLoading(false);
+    }
   };
 
   // LLM Logic
@@ -85,6 +142,7 @@ export default function Dashboard() {
 
   const handleLlmSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowGenerateInputModal(false);
     const platformLabelMap: any = {
       instagram: "Instagram Reels",
       youtube: "YouTube Shorts",
@@ -117,6 +175,32 @@ export default function Dashboard() {
   const closeLlmModal = () => {
     setShowLlmModal(false);
     if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+  };
+
+  const renderPlatforms = (platformsStr: string) => {
+    if (!platformsStr || platformsStr === 'all') {
+      return (
+        <span style={{ display: "inline-flex", gap: "6px", marginLeft: "8px" }}>
+          <img src="/static/logos/Tiktok_logo.png" alt="TikTok" style={{ height: "14px", width: "14px" }} />
+          <img src="/static/logos/YouTube_logo.png" alt="YouTube" style={{ height: "14px", width: "14px" }} />
+          <img src="/static/logos/twitter_logo.png" alt="X" style={{ height: "14px", width: "14px" }} />
+          <img src="/static/logos/Instagram_logo.png" alt="Instagram" style={{ height: "14px", width: "14px" }} />
+        </span>
+      );
+    }
+    const plist = platformsStr.split(',');
+    return (
+      <span style={{ display: "inline-flex", gap: "6px", marginLeft: "8px" }}>
+        {plist.map((plat, idx) => {
+          const p = plat.trim();
+          if (p === 'instagram') return <img key={idx} src="/static/logos/Instagram_logo.png" alt="Instagram" style={{ height: "14px", width: "14px" }} />;
+          if (p === 'youtube') return <img key={idx} src="/static/logos/YouTube_logo.png" alt="YouTube" style={{ height: "14px", width: "14px" }} />;
+          if (p === 'tiktok') return <img key={idx} src="/static/logos/Tiktok_logo.png" alt="TikTok" style={{ height: "14px", width: "14px" }} />;
+          if (p === 'twitter' || p === 'x') return <img key={idx} src="/static/logos/twitter_logo.png" alt="X" style={{ height: "14px", width: "14px" }} />;
+          return null;
+        })}
+      </span>
+    );
   };
 
   // Typewriter effect component to perfectly mimic vanilla JS implementation
@@ -381,6 +465,81 @@ export default function Dashboard() {
         }
 
         .card h2 i { font-size: 1.1rem; }
+
+        /* BIG ACTION CARDS */
+        .big-action-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+          gap: 30px;
+          margin-bottom: 50px;
+        }
+
+        .big-action-card {
+          background: linear-gradient(145deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03));
+          border-radius: 28px;
+          padding: 40px;
+          border: 1px solid var(--glass-border);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+        }
+
+        .big-action-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at center, rgba(255, 255, 255, 0.08), transparent 70%);
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .big-action-card:hover {
+          transform: translateY(-8px) scale(1.02);
+          border-color: var(--accent-neon);
+          box-shadow: 0 45px 110px rgba(0, 0, 0, .8);
+        }
+
+        .big-action-card:hover::before {
+          opacity: 1;
+        }
+
+        .big-action-icon {
+          width: 80px;
+          height: 80px;
+          border-radius: 22px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2.5rem;
+          margin-bottom: 24px;
+          background: rgba(255, 255, 255, 0.05);
+          box-shadow: 0 15px 35px rgba(0, 0, 0, .5);
+          transition: transform 0.3s ease;
+        }
+
+        .big-action-card:hover .big-action-icon {
+          transform: rotate(-5deg) scale(1.1);
+        }
+
+        .big-action-title {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #ffffff;
+          margin-bottom: 8px;
+        }
+
+        .big-action-desc {
+          font-size: 0.95rem;
+          color: var(--text-soft);
+          line-height: 1.6;
+          max-width: 300px;
+        }
 
         /* FORM ELEMENTS */
         .form-group {
@@ -918,118 +1077,21 @@ export default function Dashboard() {
       {user && (
         <div className="container" style={{ paddingTop: "120px" }}>
           
-          <div className="action-grid">
-            {/* Submit Video */}
-            <div className="card submit-card">
-              <h2>
-                <i className="fa-solid fa-cloud-arrow-up" style={{ color: "var(--accent-neon)" }}></i>
-                Submit Video
-              </h2>
-              <form onSubmit={(e) => e.preventDefault()}>
-                <div className="form-group">
-                  <label>Target Platform</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-layer-group"></i>
-                    <select name="platform">
-                      <option value="instagram">Instagram</option>
-                      <option value="tiktok">TikTok</option>
-                      <option value="twitter">Twitter / X</option>
-                      <option value="youtube">YouTube Shorts</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Video Link</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-link"></i>
-                    <input type="text" name="url" placeholder="https://..." required />
-                  </div>
-                </div>
-                <button type="submit" className="btn-primary">Process Submission</button>
-              </form>
+          <div className="big-action-grid">
+            <div className="big-action-card" onClick={() => setShowLinkModal(true)}>
+              <div className="big-action-icon" style={{ color: "var(--accent-gold)", background: "rgba(245, 210, 139, 0.1)" }}>
+                <i className="fa-solid fa-user-plus"></i>
+              </div>
+              <div className="big-action-title">Link Account</div>
+              <div className="big-action-desc">Connect your Instagram, TikTok, YouTube or X accounts to track stats.</div>
             </div>
 
-            {/* Link Account */}
-            <div className="card link-card">
-              <h2>
-                <i className="fa-solid fa-user-plus" style={{ color: "var(--accent-gold)" }}></i>
-                Link New Account
-              </h2>
-              <form onSubmit={(e) => e.preventDefault()}>
-                <div className="form-group">
-                  <label>Platform</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-mobile-screen"></i>
-                    <select name="platform">
-                      <option value="instagram">Instagram</option>
-                      <option value="tiktok">TikTok</option>
-                      <option value="twitter">Twitter / X</option>
-                      <option value="youtube">YouTube</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Username</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-at"></i>
-                    <input type="text" name="account_name" placeholder="username (no @)" required />
-                  </div>
-                </div>
-                <button type="submit" className="btn-primary btn-green">Register Account</button>
-              </form>
-            </div>
-
-            {/* Viral LLM generator */}
-            <div className="card submit-card">
-              <h2>
-                <i className="fa-solid fa-wand-magic-sparkles" style={{ color: "var(--accent-neon)" }}></i>
-                Generate Viral Content
-              </h2>
-              <form onSubmit={handleLlmSubmit}>
-                <div className="form-group">
-                  <label>Topic</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-lightbulb"></i>
-                    <input type="text" value={topic} onChange={e => setTopic(e.target.value)} placeholder="e.g. Mindset for young entrepreneurs" required />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Audience</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-users"></i>
-                    <input type="text" value={audience} onChange={e => setAudience(e.target.value)} placeholder="e.g. 18–24 founders on Instagram" required />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Goal</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-bullseye"></i>
-                    <select value={goal} onChange={e => setGoal(e.target.value)} required>
-                      <option value="followers">Followers</option>
-                      <option value="views">Views</option>
-                      <option value="reach">Reach</option>
-                      <option value="saves">Saves</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Platform</label>
-                  <div className="input-wrapper">
-                    <i className="fa-solid fa-layer-group"></i>
-                    <select value={platform} onChange={e => setPlatform(e.target.value)} required>
-                      <option value="instagram">Instagram Reels</option>
-                      <option value="youtube">YouTube Shorts</option>
-                      <option value="tiktok">TikTok</option>
-                      <option value="twitter">Twitter / X</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button type="submit" className="btn-primary">Generate Package</button>
-              </form>
+            <div className="big-action-card" onClick={() => setShowGenerateInputModal(true)}>
+              <div className="big-action-icon" style={{ color: "var(--accent-neon)", background: "rgba(108, 242, 213, 0.1)" }}>
+                <i className="fa-solid fa-wand-magic-sparkles"></i>
+              </div>
+              <div className="big-action-title">Generate Viral Content</div>
+              <div className="big-action-desc">Use AI to create high-performing hooks, captions and tags for your niche.</div>
             </div>
           </div>
 
@@ -1124,6 +1186,168 @@ export default function Dashboard() {
               </div>
             </div>
           </section>
+          
+          {/* Campaign Discovery Section */}
+          <section id="discovery" style={{ padding: "80px 0", borderTop: "1px solid var(--border)" }}>
+            <div style={{ textAlign: "center", marginBottom: "50px" }}>
+              <h2 style={{ fontSize: "2.5rem", fontWeight: 800, marginBottom: "16px" }}>Explore Campaigns</h2>
+              <p style={{ color: "var(--text-soft)", fontSize: "1.1rem" }}>Find the perfect campaign to showcase your creativity.</p>
+            </div>
+
+            {/* Integrated Search & Category Hub */}
+            <div style={{ maxWidth: "900px", margin: "0 auto 50px", position: "relative" }}>
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center",
+                background: "rgba(15, 23, 42, 0.7)", 
+                padding: "10px", 
+                borderRadius: "24px", 
+                border: "1px solid var(--border)", 
+                backdropFilter: "blur(20px)", 
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+                marginBottom: "30px"
+              }}>
+                {/* Category Dropdown Prefix */}
+                <div style={{ position: "relative", borderRight: "1px solid var(--border)", paddingRight: "10px", marginRight: "10px" }}>
+                  <select 
+                    value={guestCategory}
+                    onChange={(e) => setGuestCategory(e.target.value)}
+                    style={{ 
+                      background: "transparent", 
+                      color: "var(--neon)", 
+                      border: "none", 
+                      borderRadius: "12px", 
+                      padding: "10px 30px 10px 15px", 
+                      outline: "none", 
+                      cursor: "pointer",
+                      fontSize: "0.95rem",
+                      fontWeight: 700,
+                      appearance: "none",
+                      width: "160px"
+                    }}
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="podcasts">Podcasts</option>
+                    <option value="gaming">Gaming</option>
+                    <option value="lifestyle">Lifestyle</option>
+                    <option value="fashion">Fashion</option>
+                    <option value="tech">Tech</option>
+                    <option value="finance">Finance</option>
+                    <option value="irl-content">IRL Content</option>
+                    <option value="sport">Sport</option>
+                  </select>
+                  <i className="fa-solid fa-chevron-down" style={{ position: "absolute", right: "15px", top: "50%", transform: "translateY(-50%)", fontSize: "0.8rem", color: "var(--neon)", pointerEvents: "none" }}></i>
+                </div>
+
+                {/* Search Input Area */}
+                <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center" }}>
+                  <i className="fa-solid fa-magnifying-glass" style={{ position: "absolute", left: "10px", color: "var(--text-soft)" }}></i>
+                  <input 
+                    type="text" 
+                    placeholder="Search by campaign name, brand, or title..."
+                    value={guestSearch}
+                    onChange={(e) => setGuestSearch(e.target.value)}
+                    style={{ 
+                      width: "100%", 
+                      padding: "12px 12px 12px 40px", 
+                      background: "transparent", 
+                      border: "none", 
+                      color: "white", 
+                      outline: "none", 
+                      fontSize: "1.1rem" 
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && fetchDiscovery()}
+                  />
+                </div>
+
+                <button 
+                  onClick={fetchDiscovery}
+                  style={{ 
+                    background: "linear-gradient(135deg, var(--neon), #4dd0e1)", 
+                    color: "#020617", 
+                    border: "none", 
+                    borderRadius: "16px", 
+                    padding: "12px 32px", 
+                    fontWeight: 800, 
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                    transition: "transform 0.2s ease, box-shadow 0.2s ease"
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                  onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+                >
+                  Explore
+                </button>
+              </div>
+
+              {/* Quick Filter Pills (Optional but helpful) */}
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center" }}>
+                {[
+                  { id: "all", label: "All", icon: "fa-border-all" },
+                  { id: "podcasts", label: "Podcasts", icon: "fa-podcast" },
+                  { id: "gaming", label: "Gaming", icon: "fa-gamepad" },
+                  { id: "tech", label: "Tech", icon: "fa-microchip" }
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setGuestCategory(cat.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "6px 14px",
+                      borderRadius: "999px",
+                      border: "1px solid",
+                      borderColor: guestCategory === cat.id ? "var(--neon)" : "var(--border)",
+                      background: guestCategory === cat.id ? "rgba(108, 242, 213, 0.1)" : "var(--surface)",
+                      color: guestCategory === cat.id ? "var(--neon)" : "var(--text-soft)",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    <i className={`fa-solid ${cat.icon}`}></i>
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Campaign Grid */}
+            {guestLoading ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "var(--text-soft)" }}>Loading campaigns...</div>
+            ) : guestPromotions.length > 0 ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px" }}>
+                {guestPromotions.map(promo => (
+                  <Link key={promo.id} href={`/promotion-detail?id=${promo.id}`} className="card" style={{ padding: "0", overflow: "hidden", display: "flex", flexDirection: "column", transition: "transform 0.2s ease", textDecoration: "none" }}>
+                    <div style={{ height: "180px", background: promo.image_path ? `url(${promo.image_path}) center/cover` : "linear-gradient(135deg, #1e293b, #0f172a)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                       {!promo.image_path && <i className="fa-solid fa-bullhorn" style={{ fontSize: "3rem", opacity: 0.2 }}></i>}
+                    </div>
+                    <div style={{ padding: "20px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+                        <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "white" }}>{promo.campaign_title || promo.name}</h3>
+                        <span style={{ fontSize: "0.7rem", padding: "3px 8px", background: "rgba(108, 242, 213, 0.1)", color: "var(--neon)", borderRadius: "999px", border: "1px solid var(--neon)" }}>
+                          {promo.campaign_type || "Campaign"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "0.85rem", color: "var(--text-soft)", marginBottom: "16px" }}>
+                        <strong>Platforms:</strong> {renderPlatforms(promo.platforms)}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
+                        <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--accent-gold)" }}>${promo.budget || 0} Budget</span>
+                        <span style={{ fontSize: "0.8rem", color: "var(--neon)" }}>View Details <i className="fa-solid fa-arrow-right"></i></span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "40px", color: "var(--text-soft)", background: "var(--surface)", borderRadius: "20px" }}>
+                No campaigns found matching your criteria.
+              </div>
+            )}
+          </section>
 
           {/* Two Paths */}
           <div id="paths" style={{ padding: "100px 0" }}>
@@ -1185,6 +1409,115 @@ export default function Dashboard() {
         style={{ padding: "60px 0", borderTop: "1px solid var(--border)", textAlign: "center", color: "var(--text-soft)", fontSize: "0.9rem" }}>
         <p>&copy; 2026 AutoSocial Platform. All rights reserved.</p>
       </footer>
+
+      {/* Link Account Modal */}
+      {showLinkModal && (
+        <div className="modal-overlay" onClick={() => setShowLinkModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: "450px" }}>
+            <button className="modal-close" onClick={() => setShowLinkModal(false)}>
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+            <h2 style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", color: "#fff" }}>
+              <i className="fa-solid fa-user-plus" style={{ color: "var(--accent-gold)" }}></i>
+              Link New Account
+            </h2>
+            <form onSubmit={handleLinkSubmit} style={{ textAlign: "left" }}>
+              <div className="form-group">
+                <label>Platform</label>
+                <div className="input-wrapper">
+                  <i className="fa-solid fa-mobile-screen"></i>
+                  <select value={linkPlatform} onChange={e => setLinkPlatform(e.target.value)} required>
+                    <option value="instagram">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="twitter">Twitter / X</option>
+                    <option value="youtube">YouTube</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Username</label>
+                <div className="input-wrapper">
+                  <i className="fa-solid fa-at"></i>
+                  <input 
+                    type="text" 
+                    value={accountName} 
+                    onChange={e => setAccountName(e.target.value)} 
+                    placeholder="username (no @)" 
+                    required 
+                  />
+                </div>
+              </div>
+              {linkError && <p style={{ color: "var(--danger)", fontSize: "0.85rem", marginBottom: "12px" }}>{linkError}</p>}
+              <button type="submit" className="btn-primary" style={{ width: "100%", marginTop: "10px" }} disabled={linkLoading}>
+                {linkLoading ? "Registering..." : "Register Account"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Input Modal */}
+      {showGenerateInputModal && (
+        <div className="modal-overlay" onClick={() => setShowGenerateInputModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: "500px" }}>
+            <button className="modal-close" onClick={() => setShowGenerateInputModal(false)}>
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+            <h2 style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", color: "#fff" }}>
+              <i className="fa-solid fa-wand-magic-sparkles" style={{ color: "var(--accent-neon)" }}></i>
+              Generate Content
+            </h2>
+            <form onSubmit={handleLlmSubmit} style={{ textAlign: "left" }}>
+              <div className="form-group">
+                <label>Topic</label>
+                <div className="input-wrapper">
+                  <i className="fa-solid fa-lightbulb"></i>
+                  <input type="text" value={topic} onChange={e => setTopic(e.target.value)} placeholder="e.g. Mindset for young entrepreneurs" required />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Audience</label>
+                <div className="input-wrapper">
+                  <i className="fa-solid fa-users"></i>
+                  <input type="text" value={audience} onChange={e => setAudience(e.target.value)} placeholder="e.g. 18–24 founders on Instagram" required />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label>Goal</label>
+                  <div className="input-wrapper">
+                    <i className="fa-solid fa-bullseye"></i>
+                    <select value={goal} onChange={e => setGoal(e.target.value)} required>
+                      <option value="followers">Followers</option>
+                      <option value="views">Views</option>
+                      <option value="reach">Reach</option>
+                      <option value="saves">Saves</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label>Platform</label>
+                  <div className="input-wrapper">
+                    <i className="fa-solid fa-layer-group"></i>
+                    <select value={platform} onChange={e => setPlatform(e.target.value)} required>
+                      <option value="instagram">Instagram Reels</option>
+                      <option value="youtube">YouTube Shorts</option>
+                      <option value="tiktok">TikTok</option>
+                      <option value="twitter">Twitter / X</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" className="btn-primary" style={{ width: "100%", marginTop: "14px" }}>
+                Generate Package
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* LLM Modal */}
       {showLlmModal && (
@@ -1354,6 +1687,10 @@ export default function Dashboard() {
                       <option value="irl-content">IRL Content</option>
                       <option value="sport">Sport</option>
                       <option value="gaming">Gaming</option>
+                      <option value="lifestyle">Lifestyle</option>
+                      <option value="fashion">Fashion</option>
+                      <option value="tech">Tech</option>
+                      <option value="finance">Finance</option>
                       <option value="brands">Brands</option>
                       <option value="others">Others</option>
                     </select>

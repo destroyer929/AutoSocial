@@ -206,7 +206,7 @@
         </form>
 
         <div class="auth-footer">
-            Don't have an account? <a href="/signup">Sign up</a>
+            Don't have an account? <a href="/signup" id="signup-link">Sign up</a>
         </div>
     </div>
 </div>
@@ -226,6 +226,13 @@
             <div class="alert alert-success">
                 <i class="fa-solid fa-circle-check"></i> ${params.get('success')}
             </div>`;
+    }
+    if (params.has('redirect')) {
+        const signupLink = document.getElementById('signup-link');
+        if (signupLink) {
+            const currentHref = signupLink.getAttribute('href');
+            signupLink.setAttribute('href', `${currentHref}?redirect=${encodeURIComponent(params.get('redirect'))}`);
+        }
     }
 </script>
 
